@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - FFXIV Feedback</title>
+    <style>
+        :root {
+            --primary: #1a3a5c;
+            --primary-light: #2d5a87;
+            --accent: #d4a84b;
+            --accent-light: #e8c36b;
+            --bg: #0f1923;
+            --bg-light: #1a2a3a;
+            --text: #e0e0e0;
+            --text-muted: #8a9bab;
+            --success: #4caf50;
+            --error: #c45c5c;
+            --warning: #d4a84b;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--bg-light) 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        h1 {
+            color: var(--accent);
+            font-size: 1.8rem;
+        }
+        
+        .filters {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .filter-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+        
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .filter-group select option {
+            background: var(--bg-light);
+            color: var(--text);
+        }
+        
+        .clear-filters {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-left: auto;
+            transition: background 0.2s;
+        }
+        
+        .clear-filters:hover {
+            background: rgba(212, 168, 75, 0.1);
+        }
+        
+        .results-count {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .feedback-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .feedback-card {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        
+        .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .feedback-identity {
+            flex: 1;
+        }
+        
+        .character-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .server-name {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        .anonymous-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .feedback-meta {
+            text-align: right;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        
+        .job-badge {
+            background: var(--accent);
+            color: var(--bg);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+        
+        .content-type {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+        
+        .ratings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        
+        .rating-item {
+            text-align: center;
+        }
+        
+        .rating-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        
+        .rating-stars {
+            color: var(--accent);
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+        
+        .rating-stars .empty {
+            color: #444;
+        }
+        
+        .comments-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .comments-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .comments-text {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .delete-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--error);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        .ip-address {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        @media (max-width: 600px) {
+            .feedback-header {
+                flex-direction: column;
+            }
+            
+            .feedback-meta {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ player.name }}'s Feedback Dashboard</h1>
+        </header>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_count }}</div>
+                <div class="stat-label">Total Responses</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ "{:.1}"|format(avg_overall) }}</div>
+                <div class="stat-label">Average Overall Rating</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>Search</label>
+                <input type="text" id="filter-search" placeholder="Name, server, comments...">
+            </div>
+            <div class="filter-group">
+                <label>Content Type</label>
+                <select id="filter-content">
+                    <option value="">All</option>
+                    <option value="Dungeon">Dungeon</option>
+                    <option value="Trial">Trial</option>
+                    <option value="Normal Raid">Normal Raid</option>
+                    <option value="Alliance Raid">Alliance Raid</option>
+                    <option value="Extreme Trial">Extreme Trial</option>
+                    <option value="Savage Raid">Savage Raid</option>
+                    <option value="Ultimate Raid">Ultimate Raid</option>
+                    <option value="Deep Dungeon">Deep Dungeon</option>
+                    <option value="Variant Dungeon">Variant Dungeon</option>
+                    <option value="Criterion">Criterion</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Job Played</label>
+                <select id="filter-job">
+                    <option value="">All Jobs</option>
+                    <optgroup label="Tanks">
+                        <option value="PLD">Paladin</option>
+                        <option value="WAR">Warrior</option>
+                        <option value="DRK">Dark Knight</option>
+                        <option value="GNB">Gunbreaker</option>
+                    </optgroup>
+                    <optgroup label="Healers">
+                        <option value="WHM">White Mage</option>
+                        <option value="SCH">Scholar</option>
+                        <option value="AST">Astrologian</option>
+                        <option value="SGE">Sage</option>
+                    </optgroup>
+                    <optgroup label="Melee DPS">
+                        <option value="MNK">Monk</option>
+                        <option value="DRG">Dragoon</option>
+                        <option value="NIN">Ninja</option>
+                        <option value="SAM">Samurai</option>
+                        <option value="RPR">Reaper</option>
+                        <option value="VPR">Viper</option>
+                    </optgroup>
+                    <optgroup label="Physical Ranged">
+                        <option value="BRD">Bard</option>
+                        <option value="MCH">Machinist</option>
+                        <option value="DNC">Dancer</option>
+                    </optgroup>
+                    <optgroup label="Magical Ranged">
+                        <option value="BLM">Black Mage</option>
+                        <option value="SMN">Summoner</option>
+                        <option value="RDM">Red Mage</option>
+                        <option value="PCT">Pictomancer</option>
+                    </optgroup>
+                    <optgroup label="Limited">
+                        <option value="BLU">Blue Mage</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Min Overall Rating</label>
+                <select id="filter-rating">
+                    <option value="">Any</option>
+                    <option value="5">5 stars</option>
+                    <option value="4">4+ stars</option>
+                    <option value="3">3+ stars</option>
+                    <option value="2">2+ stars</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Identity</label>
+                <select id="filter-identity">
+                    <option value="">All</option>
+                    <option value="named">Named only</option>
+                    <option value="anonymous">Anonymous only</option>
+                </select>
+            </div>
+            <button class="clear-filters" onclick="clearFilters()">Clear Filters</button>
+        </div>
+        
+        <div class="results-count" id="results-count"></div>
+        
+        <div class="feedback-list">
+            {% if feedbacks.is_empty() %}
+            <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <h2>No Feedback Yet</h2>
+                <p>Responses will appear here once submitted.</p>
+            </div>
+            {% else %}
+            {% for feedback in feedbacks %}
+            <div class="feedback-card" id="feedback-{{ feedback.id }}" data-job="{% match feedback.player_job %}{% when Some with (job) %}{{ job }}{% when None %}{% endmatch %}">
+                <button class="delete-btn" onclick="deleteFeedback('{{ feedback.id }}')">🗑️ Delete</button>
+                
+                <div class="feedback-header">
+                    <div class="feedback-identity">
+                        {% if feedback.is_anonymous %}
+                        <span class="anonymous-badge">Anonymous</span>
+                        {% else %}
+                        <div class="character-name">
+                            {% match feedback.character_name %}
+                            {% when Some with (name) %}{{ name }}{% when None %}Unknown{% endmatch %}
+                        </div>
+                        <div class="server-name">
+                            {% match feedback.server %}
+                            {% when Some with (server) %}{{ server }}{% when None %}{% endmatch %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="feedback-meta">
+                        {% match feedback.player_job %}
+                        {% when Some with (job) %}<div class="job-badge">{{ job }}</div>{% when None %}{% endmatch %}
+                        {% match feedback.content_type %}
+                        {% when Some with (ct) %}<div class="content-type">{{ ct }}</div>{% when None %}{% endmatch %}
+                        <div>{{ feedback.created_at }}</div>
+                        <div class="ip-address">IP: {{ feedback.ip_address }}</div>
+                    </div>
+                </div>
+                
+                <div class="ratings-grid">
+                    <div class="rating-item">
+                        <div class="rating-label">Mechanics</div>
+                        <div class="rating-stars">
+                            {% for i in 1..=5 %}
+                                {% if i <= feedback.rating_mechanics %}<span>★</span>{% else %}<span class="empty">★</span>{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Damage/Healing</div>
+                        <div class="rating-stars">
+                            {% for i in 1..=5 %}
+                                {% if i <= feedback.rating_damage %}<span>★</span>{% else %}<span class="empty">★</span>{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Teamwork</div>
+                        <div class="rating-stars">
+                            {% for i in 1..=5 %}
+                                {% if i <= feedback.rating_teamwork %}<span>★</span>{% else %}<span class="empty">★</span>{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Communication</div>
+                        <div class="rating-stars">
+                            {% for i in 1..=5 %}
+                                {% if i <= feedback.rating_communication %}<span>★</span>{% else %}<span class="empty">★</span>{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="rating-item">
+                        <div class="rating-label">Overall</div>
+                        <div class="rating-stars">
+                            {% for i in 1..=5 %}
+                                {% if i <= feedback.rating_overall %}<span>★</span>{% else %}<span class="empty">★</span>{% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% match feedback.comments %}
+                {% when Some with (comments) %}
+                {% if !comments.is_empty() %}
+                <div class="comments-section">
+                    <div class="comments-label">Comments</div>
+                    <div class="comments-text">{{ comments }}</div>
+                </div>
+                {% endif %}
+                {% when None %}
+                {% endmatch %}
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+    
+    <script>
+        async function deleteFeedback(id) {
+            if (!confirm('Are you sure you want to delete this feedback?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/delete/' + id, {
+                    method: 'DELETE',
+                });
+                
+                if (response.ok) {
+                    document.getElementById('feedback-' + id).remove();
+                    applyFilters();
+                } else {
+                    alert('Failed to delete feedback');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        // Live filtering
+        const filterSearch = document.getElementById('filter-search');
+        const filterContent = document.getElementById('filter-content');
+        const filterRating = document.getElementById('filter-rating');
+        const filterIdentity = document.getElementById('filter-identity');
+        const filterJob = document.getElementById('filter-job');
+        const resultsCount = document.getElementById('results-count');
+        
+        function applyFilters() {
+            const searchTerm = filterSearch.value.toLowerCase();
+            const contentType = filterContent.value;
+            const minRating = filterRating.value ? parseInt(filterRating.value) : 0;
+            const identity = filterIdentity.value;
+            const job = filterJob.value;
+            
+            const cards = document.querySelectorAll('.feedback-card');
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                let visible = true;
+                
+                // Search filter - check character name, server, comments
+                if (searchTerm) {
+                    const text = card.textContent.toLowerCase();
+                    if (!text.includes(searchTerm)) {
+                        visible = false;
+                    }
+                }
+                
+                // Content type filter
+                if (contentType && visible) {
+                    const contentBadge = card.querySelector('.content-type');
+                    if (!contentBadge || !contentBadge.textContent.includes(contentType)) {
+                        visible = false;
+                    }
+                }
+                
+                // Job filter
+                if (job && visible) {
+                    const cardJob = card.dataset.job;
+                    if (cardJob !== job) {
+                        visible = false;
+                    }
+                }
+                
+                // Rating filter
+                if (minRating && visible) {
+                    const overallRating = card.querySelectorAll('.rating-item')[4];
+                    if (overallRating) {
+                        const stars = overallRating.querySelectorAll('.rating-stars span:not(.empty)').length;
+                        if (stars < minRating) {
+                            visible = false;
+                        }
+                    }
+                }
+                
+                // Identity filter
+                if (identity && visible) {
+                    const isAnonymous = card.querySelector('.anonymous-badge') !== null;
+                    if (identity === 'anonymous' && !isAnonymous) {
+                        visible = false;
+                    }
+                    if (identity === 'named' && isAnonymous) {
+                        visible = false;
+                    }
+                }
+                
+                card.style.display = visible ? 'block' : 'none';
+                if (visible) visibleCount++;
+            });
+            
+            // Update results count
+            const total = cards.length;
+            if (searchTerm || contentType || minRating || identity || job) {
+                resultsCount.textContent = `Showing ${visibleCount} of ${total} responses`;
+            } else {
+                resultsCount.textContent = '';
+            }
+        }
+        
+        function clearFilters() {
+            filterSearch.value = '';
+            filterContent.value = '';
+            filterRating.value = '';
+            filterIdentity.value = '';
+            filterJob.value = '';
+            applyFilters();
+        }
+        
+        // Attach event listeners
+        filterSearch.addEventListener('input', applyFilters);
+        filterContent.addEventListener('change', applyFilters);
+        filterRating.addEventListener('change', applyFilters);
+        filterIdentity.addEventListener('change', applyFilters);
+        filterJob.addEventListener('change', applyFilters);
+    </script>
+</body>
+</html>

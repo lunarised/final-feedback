@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFXIV Performance Feedback</title>
+    <style>
+        :root {
+            --primary: #1a3a5c;
+            --primary-light: #2d5a87;
+            --primary-dark: #0d1f33;
+            --accent: #d4a84b;
+            --accent-light: #e8c36b;
+            --bg: #0f1923;
+            --bg-light: #1a2a3a;
+            --text: #e0e0e0;
+            --text-muted: #8a9bab;
+            --success: #4caf50;
+            --error: #c45c5c;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 0;
+        }
+        
+        .banner-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .banner {
+            width: 106%;
+            height: auto;
+            display: block;
+            margin-left: -3%;
+            margin-top: -2%;
+        }
+        
+        .banner-fade {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%);
+            pointer-events: none;
+        }
+        
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 140px 20px 20px 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content-wrapper {
+            background: rgba(15, 25, 35, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 25px;
+            padding-top: 35px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .hero {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .hero-image {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center 20%;
+            border: 4px solid var(--bg);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .character-name {
+            font-size: 2.2rem;
+            color: var(--accent);
+            margin: 12px 0 5px 0;
+            font-weight: 600;
+        }
+        
+        .character-server {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            color: var(--text);
+            margin: 20px 0 10px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+        
+        .card {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .card-title {
+            color: var(--accent);
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text);
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239e9e9e' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 35px;
+            cursor: pointer;
+        }
+        
+        select option {
+            background: var(--bg-light);
+            color: var(--text);
+            padding: 10px;
+        }
+        
+        select optgroup {
+            background: var(--bg);
+            color: var(--primary-light);
+            font-weight: 600;
+        }
+        
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(212, 168, 75, 0.3);
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary-light);
+        }
+        
+        .rating-section {
+            margin-bottom: 25px;
+        }
+        
+        .rating-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .rating-label {
+            font-weight: 500;
+            flex: 1;
+        }
+        
+        .rating-description {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        .star-rating {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 5px;
+        }
+        
+        .star-rating input {
+            display: none;
+        }
+        
+        .star-rating label {
+            cursor: pointer;
+            font-size: 28px;
+            color: #444;
+            transition: color 0.2s;
+            margin: 0;
+        }
+        
+        .star-rating label:before {
+            content: '★';
+        }
+        
+        .star-rating input:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: var(--accent);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 14px 30px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 20, 140, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .identity-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        @media (max-width: 600px) {
+            .identity-fields {
+                grid-template-columns: 1fr;
+            }
+            
+            .rating-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .star-rating label {
+                font-size: 32px;
+            }
+        }
+        
+        .note {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+        
+        .crystal-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        #identity-section {
+            transition: opacity 0.3s, max-height 0.3s;
+        }
+        
+        #identity-section.hidden {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .custom-dropdown {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .dropdown-button {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.3);
+            color: var(--text);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            gap: 8px;
+        }
+        
+        .job-display {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+        
+        .dropdown-button:hover {
+            background: rgba(0,0,0,0.5);
+            border-color: var(--accent-light);
+        }
+        
+        .dropdown-button:active {
+            transform: scale(0.98);
+        }
+        
+        .dropdown-arrow {
+            transition: transform 0.2s;
+            color: var(--accent);
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        
+        .dropdown-button.active .dropdown-arrow {
+            transform: rotate(180deg);
+        }
+        
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-light);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        
+        .dropdown-menu.open {
+            display: block;
+        }
+        
+        .dropdown-category {
+            padding: 12px 16px 8px 16px;
+            color: var(--accent);
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(212, 168, 75, 0.2);
+            margin-top: 8px;
+            cursor: default;
+        }
+        
+        .dropdown-category:first-child {
+            margin-top: 0;
+        }
+        
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 1rem;
+            text-align: left;
+            transition: all 0.15s;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            width: 100%;
+        }
+        
+        .dropdown-item:hover {
+            background: rgba(212, 168, 75, 0.15);
+            color: var(--accent-light);
+            padding-left: 24px;
+        }
+        
+        .dropdown-item img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        
+        .dropdown-item span {
+            flex-grow: 1;
+        }
+
+        footer {
+            text-align: center;
+            padding: 24px 16px;
+            background: var(--primary-dark);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 48px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--accent-light);
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="banner-wrapper">
+        <img src="{{ player.banner_image }}" alt="Banner" class="banner" width="1920" height="220" loading="eager">
+        <div class="banner-fade"></div>
+    </div>
+    
+    <div class="container">
+        <div class="content-wrapper">
+            <header>
+                <div class="hero">
+                    <img src="{{ player.profile_image }}" alt="{{ player.name }}" class="hero-image" width="110" height="110" loading="eager">
+                    <div class="character-name">{{ player.name }}</div>
+                    <div class="character-server">{{ player.server }} • {{ player.datacenter }}</div>
+                </div>
+                <h1>Performance Feedback</h1>
+                <p class="subtitle">{{ player.tagline }}</p>
+            </header>
+            
+            <form action="/submit" method="POST" id="feedback-form">
+                <div class="card">
+                    <h2 class="card-title">Your Identity (Optional)</h2>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="is_anonymous" name="is_anonymous" value="true">
+                            <label for="is_anonymous" style="margin: 0;">Submit Anonymously</label>
+                        </div>
+                        <p class="note">Check this to hide your character information</p>
+                    </div>
+                    
+                    <div id="identity-section">
+                    <div class="identity-fields">
+                        <div class="form-group">
+                            <label for="character_name">Character Name</label>
+                            <input type="text" id="character_name" name="character_name" placeholder="Your character name">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="server">Server</label>
+                            <input type="hidden" id="server" name="server" value="">
+                            <div class="custom-dropdown">
+                                <button type="button" class="dropdown-button" id="server-button">
+                                    <span class="server-display">Select your server...</span>
+                                    <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8">
+                                        <path fill="currentColor" d="M0 0l6 8 6-8z"/>
+                                    </svg>
+                                </button>
+                                <div class="dropdown-menu" id="server-menu">
+                                    <div class="dropdown-category">OCE - Materia</div>
+                                    <button type="button" class="dropdown-item" data-value="Bismarck"><span>Bismarck</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ravana"><span>Ravana</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Sephirot"><span>Sephirot</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Sophia"><span>Sophia</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Zurvan"><span>Zurvan</span></button>
+                                    
+                                    <div class="dropdown-category">NA - Aether</div>
+                                    <button type="button" class="dropdown-item" data-value="Adamantoise"><span>Adamantoise</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Cactuar"><span>Cactuar</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Faerie"><span>Faerie</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Gilgamesh"><span>Gilgamesh</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Jenova"><span>Jenova</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Midgardsormr"><span>Midgardsormr</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Sargatanas"><span>Sargatanas</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Siren"><span>Siren</span></button>
+                                    
+                                    <div class="dropdown-category">NA - Crystal</div>
+                                    <button type="button" class="dropdown-item" data-value="Balmung"><span>Balmung</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Brynhildr"><span>Brynhildr</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Coeurl"><span>Coeurl</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Diabolos"><span>Diabolos</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Goblin"><span>Goblin</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Malboro"><span>Malboro</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Mateus"><span>Mateus</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Zalera"><span>Zalera</span></button>
+                                    
+                                    <div class="dropdown-category">NA - Primal</div>
+                                    <button type="button" class="dropdown-item" data-value="Behemoth"><span>Behemoth</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Excalibur"><span>Excalibur</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Exodus"><span>Exodus</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Famfrit"><span>Famfrit</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Hyperion"><span>Hyperion</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Lamia"><span>Lamia</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Leviathan"><span>Leviathan</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ultros"><span>Ultros</span></button>
+                                    
+                                    <div class="dropdown-category">NA - Dynamis</div>
+                                    <button type="button" class="dropdown-item" data-value="Halicarnassus"><span>Halicarnassus</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Maduin"><span>Maduin</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Marilith"><span>Marilith</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Seraph"><span>Seraph</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Cuchulainn"><span>Cuchulainn</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Golem"><span>Golem</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Kraken"><span>Kraken</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Rafflesia"><span>Rafflesia</span></button>
+                                    
+                                    <div class="dropdown-category">EU - Chaos</div>
+                                    <button type="button" class="dropdown-item" data-value="Cerberus"><span>Cerberus</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Louisoix"><span>Louisoix</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Moogle"><span>Moogle</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Omega"><span>Omega</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Phantom"><span>Phantom</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ragnarok"><span>Ragnarok</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Sagittarius"><span>Sagittarius</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Spriggan"><span>Spriggan</span></button>
+                                    
+                                    <div class="dropdown-category">EU - Light</div>
+                                    <button type="button" class="dropdown-item" data-value="Alpha"><span>Alpha</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Lich"><span>Lich</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Odin"><span>Odin</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Phoenix"><span>Phoenix</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Raiden"><span>Raiden</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Shiva"><span>Shiva</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Twintania"><span>Twintania</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Zodiark"><span>Zodiark</span></button>
+                                    
+                                    <div class="dropdown-category">JP - Elemental</div>
+                                    <button type="button" class="dropdown-item" data-value="Aegis"><span>Aegis</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Atomos"><span>Atomos</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Carbuncle"><span>Carbuncle</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Garuda"><span>Garuda</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Gungnir"><span>Gungnir</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Kujata"><span>Kujata</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Tonberry"><span>Tonberry</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Typhon"><span>Typhon</span></button>
+                                    
+                                    <div class="dropdown-category">JP - Gaia</div>
+                                    <button type="button" class="dropdown-item" data-value="Alexander"><span>Alexander</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Bahamut"><span>Bahamut</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Durandal"><span>Durandal</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Fenrir"><span>Fenrir</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ifrit"><span>Ifrit</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ridill"><span>Ridill</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Tiamat"><span>Tiamat</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ultima"><span>Ultima</span></button>
+                                    
+                                    <div class="dropdown-category">JP - Mana</div>
+                                    <button type="button" class="dropdown-item" data-value="Anima"><span>Anima</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Asura"><span>Asura</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Chocobo"><span>Chocobo</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Hades"><span>Hades</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ixion"><span>Ixion</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Masamune"><span>Masamune</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Pandaemonium"><span>Pandaemonium</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Titan"><span>Titan</span></button>
+                                    
+                                    <div class="dropdown-category">JP - Meteor</div>
+                                    <button type="button" class="dropdown-item" data-value="Belias"><span>Belias</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Mandragora"><span>Mandragora</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Ramuh"><span>Ramuh</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Shinryu"><span>Shinryu</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Unicorn"><span>Unicorn</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Valefor"><span>Valefor</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Yojimbo"><span>Yojimbo</span></button>
+                                    <button type="button" class="dropdown-item" data-value="Zeromus"><span>Zeromus</span></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">Content Type</h2>
+                <div class="form-group">
+                    <label for="content_type">What did we run together?</label>
+                    <input type="hidden" id="content_type" name="content_type" value="">
+                    <div class="custom-dropdown">
+                        <button type="button" class="dropdown-button" id="content-button">
+                            <span class="content-display">Select content type...</span>
+                            <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8">
+                                <path fill="currentColor" d="M0 0l6 8 6-8z"/>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu" id="content-menu">
+                            <button type="button" class="dropdown-item" data-value="Dungeon">
+                                <span>Dungeon</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Trial">
+                                <span>Trial</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Normal Raid">
+                                <span>Normal Raid</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Alliance Raid">
+                                <span>Alliance Raid</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Extreme Trial">
+                                <span>Extreme Trial</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Savage Raid">
+                                <span>Savage Raid</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Ultimate Raid">
+                                <span>Ultimate Raid</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Deep Dungeon">
+                                <span>Deep Dungeon (PotD/HoH/EO)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Variant Dungeon">
+                                <span>Variant Dungeon</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Criterion">
+                                <span>Criterion Dungeon</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="Other">
+                                <span>Other</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="player_job">What job was my character playing?</label>
+                    <input type="hidden" id="player_job" name="player_job" value="">
+                    <div class="custom-dropdown">
+                        <button type="button" class="dropdown-button" id="job-button">
+                            <span class="job-display">Select job...</span>
+                            <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8">
+                                <path fill="currentColor" d="M0 0l6 8 6-8z"/>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu" id="job-menu">
+                            <div class="dropdown-category">Tanks</div>
+                            <button type="button" class="dropdown-item" data-value="PLD" data-name="Paladin">
+                                <img src="/assets/jobIcons/paladin.png" alt="Paladin">
+                                <span>Paladin (PLD)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="WAR" data-name="Warrior">
+                                <img src="/assets/jobIcons/warrior.png" alt="Warrior">
+                                <span>Warrior (WAR)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="DRK" data-name="Dark Knight">
+                                <img src="/assets/jobIcons/darkknight.png" alt="Dark Knight">
+                                <span>Dark Knight (DRK)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="GNB" data-name="Gunbreaker">
+                                <img src="/assets/jobIcons/gunbreaker.png" alt="Gunbreaker">
+                                <span>Gunbreaker (GNB)</span>
+                            </button>
+                            
+                            <div class="dropdown-category">Healers</div>
+                            <button type="button" class="dropdown-item" data-value="WHM" data-name="White Mage">
+                                <img src="/assets/jobIcons/whitemage.png" alt="White Mage">
+                                <span>White Mage (WHM)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="SCH" data-name="Scholar">
+                                <img src="/assets/jobIcons/scholar.png" alt="Scholar">
+                                <span>Scholar (SCH)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="AST" data-name="Astrologian">
+                                <img src="/assets/jobIcons/astrologian.png" alt="Astrologian">
+                                <span>Astrologian (AST)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="SGE" data-name="Sage">
+                                <img src="/assets/jobIcons/sage.png" alt="Sage">
+                                <span>Sage (SGE)</span>
+                            </button>
+                            
+                            <div class="dropdown-category">Melee DPS</div>
+                            <button type="button" class="dropdown-item" data-value="MNK" data-name="Monk">
+                                <img src="/assets/jobIcons/monk.png" alt="Monk">
+                                <span>Monk (MNK)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="DRG" data-name="Dragoon">
+                                <img src="/assets/jobIcons/dragoon.png" alt="Dragoon">
+                                <span>Dragoon (DRG)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="NIN" data-name="Ninja">
+                                <img src="/assets/jobIcons/ninja.png" alt="Ninja">
+                                <span>Ninja (NIN)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="SAM" data-name="Samurai">
+                                <img src="/assets/jobIcons/samurai.png" alt="Samurai">
+                                <span>Samurai (SAM)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="RPR" data-name="Reaper">
+                                <img src="/assets/jobIcons/reaper.png" alt="Reaper">
+                                <span>Reaper (RPR)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="VPR" data-name="Viper">
+                                <img src="/assets/jobIcons/viper.png" alt="Viper">
+                                <span>Viper (VPR)</span>
+                            </button>
+                            
+                            <div class="dropdown-category">Physical Ranged DPS</div>
+                            <button type="button" class="dropdown-item" data-value="BRD" data-name="Bard">
+                                <img src="/assets/jobIcons/bard.png" alt="Bard">
+                                <span>Bard (BRD)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="MCH" data-name="Machinist">
+                                <img src="/assets/jobIcons/machinist.png" alt="Machinist">
+                                <span>Machinist (MCH)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="DNC" data-name="Dancer">
+                                <img src="/assets/jobIcons/dancer.png" alt="Dancer">
+                                <span>Dancer (DNC)</span>
+                            </button>
+                            
+                            <div class="dropdown-category">Magical Ranged DPS</div>
+                            <button type="button" class="dropdown-item" data-value="BLM" data-name="Black Mage">
+                                <img src="/assets/jobIcons/blackmage.png" alt="Black Mage">
+                                <span>Black Mage (BLM)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="SMN" data-name="Summoner">
+                                <img src="/assets/jobIcons/summoner.png" alt="Summoner">
+                                <span>Summoner (SMN)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="RDM" data-name="Red Mage">
+                                <img src="/assets/jobIcons/redmage.png" alt="Red Mage">
+                                <span>Red Mage (RDM)</span>
+                            </button>
+                            <button type="button" class="dropdown-item" data-value="PCT" data-name="Pictomancer">
+                                <img src="/assets/jobIcons/pictomancer.png" alt="Pictomancer">
+                                <span>Pictomancer (PCT)</span>
+                            </button>
+                            
+                            <div class="dropdown-category">Limited Jobs</div>
+                            <button type="button" class="dropdown-item" data-value="BLU" data-name="Blue Mage">
+                                <img src="/assets/jobIcons/bluemage.png" alt="Blue Mage">
+                                <span>Blue Mage (BLU)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">Performance Ratings</h2>
+                <p class="note" style="margin-bottom: 20px;">Rate each category from 1 (needs work) to 5 (excellent)</p>
+                
+                <div class="rating-section">
+                    <div class="rating-item">
+                        <div class="rating-label">
+                            Mechanics Execution
+                            <div class="rating-description">Handling boss mechanics, avoiding AoEs, positioning</div>
+                        </div>
+                        <div class="star-rating">
+                            <input type="radio" id="mech5" name="rating_mechanics" value="5" required>
+                            <label for="mech5"></label>
+                            <input type="radio" id="mech4" name="rating_mechanics" value="4">
+                            <label for="mech4"></label>
+                            <input type="radio" id="mech3" name="rating_mechanics" value="3">
+                            <label for="mech3"></label>
+                            <input type="radio" id="mech2" name="rating_mechanics" value="2">
+                            <label for="mech2"></label>
+                            <input type="radio" id="mech1" name="rating_mechanics" value="1">
+                            <label for="mech1"></label>
+                        </div>
+                    </div>
+                    
+                    <div class="rating-item">
+                        <div class="rating-label">
+                            Damage/Healing Output
+                            <div class="rating-description">DPS contribution, healing efficiency, mitigation usage</div>
+                        </div>
+                        <div class="star-rating">
+                            <input type="radio" id="dmg5" name="rating_damage" value="5" required>
+                            <label for="dmg5"></label>
+                            <input type="radio" id="dmg4" name="rating_damage" value="4">
+                            <label for="dmg4"></label>
+                            <input type="radio" id="dmg3" name="rating_damage" value="3">
+                            <label for="dmg3"></label>
+                            <input type="radio" id="dmg2" name="rating_damage" value="2">
+                            <label for="dmg2"></label>
+                            <input type="radio" id="dmg1" name="rating_damage" value="1">
+                            <label for="dmg1"></label>
+                        </div>
+                    </div>
+                    
+                    <div class="rating-item">
+                        <div class="rating-label">
+                            Teamwork
+                            <div class="rating-description">Coordination, not causing wipes, supporting the team</div>
+                        </div>
+                        <div class="star-rating">
+                            <input type="radio" id="team5" name="rating_teamwork" value="5" required>
+                            <label for="team5"></label>
+                            <input type="radio" id="team4" name="rating_teamwork" value="4">
+                            <label for="team4"></label>
+                            <input type="radio" id="team3" name="rating_teamwork" value="3">
+                            <label for="team3"></label>
+                            <input type="radio" id="team2" name="rating_teamwork" value="2">
+                            <label for="team2"></label>
+                            <input type="radio" id="team1" name="rating_teamwork" value="1">
+                            <label for="team1"></label>
+                        </div>
+                    </div>
+                    
+                    <div class="rating-item">
+                        <div class="rating-label">
+                            Communication
+                            <div class="rating-description">Chat responsiveness, callouts, friendliness</div>
+                        </div>
+                        <div class="star-rating">
+                            <input type="radio" id="comm5" name="rating_communication" value="5" required>
+                            <label for="comm5"></label>
+                            <input type="radio" id="comm4" name="rating_communication" value="4">
+                            <label for="comm4"></label>
+                            <input type="radio" id="comm3" name="rating_communication" value="3">
+                            <label for="comm3"></label>
+                            <input type="radio" id="comm2" name="rating_communication" value="2">
+                            <label for="comm2"></label>
+                            <input type="radio" id="comm1" name="rating_communication" value="1">
+                            <label for="comm1"></label>
+                        </div>
+                    </div>
+                    
+                    <div class="rating-item">
+                        <div class="rating-label">
+                            Overall Experience
+                            <div class="rating-description">Would you run content with me again?</div>
+                        </div>
+                        <div class="star-rating">
+                            <input type="radio" id="overall5" name="rating_overall" value="5" required>
+                            <label for="overall5"></label>
+                            <input type="radio" id="overall4" name="rating_overall" value="4">
+                            <label for="overall4"></label>
+                            <input type="radio" id="overall3" name="rating_overall" value="3">
+                            <label for="overall3"></label>
+                            <input type="radio" id="overall2" name="rating_overall" value="2">
+                            <label for="overall2"></label>
+                            <input type="radio" id="overall1" name="rating_overall" value="1">
+                            <label for="overall1"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">Additional Comments</h2>
+                <div class="form-group">
+                    <label for="comments">Any specific feedback or suggestions?</label>
+                    <textarea id="comments" name="comments" placeholder="Feel free to share any specific feedback, things I did well, or areas where I can improve..."></textarea>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn">Submit Feedback</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('is_anonymous').addEventListener('change', function() {
+            const identitySection = document.getElementById('identity-section');
+            if (this.checked) {
+                identitySection.classList.add('hidden');
+            } else {
+                identitySection.classList.remove('hidden');
+            }
+        });
+        
+        // Generic custom dropdown functionality
+        function setupCustomDropdown(buttonId, menuId, inputId, displayClass) {
+            const button = document.getElementById(buttonId);
+            const menu = document.getElementById(menuId);
+            const input = document.getElementById(inputId);
+            const display = button.querySelector(`.${displayClass}`);
+            
+            if (!button || !menu || !input || !display) return;
+            
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Close other dropdowns
+                document.querySelectorAll('.dropdown-menu.open').forEach(m => {
+                    if (m !== menu) m.classList.remove('open');
+                });
+                document.querySelectorAll('.dropdown-button.active').forEach(b => {
+                    if (b !== button) b.classList.remove('active');
+                });
+                menu.classList.toggle('open');
+                button.classList.toggle('active');
+            });
+            
+            menu.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const value = this.dataset.value;
+                    const img = this.querySelector('img');
+                    
+                    input.value = value;
+                    if (img) {
+                        display.innerHTML = `<img src="${img.src}" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 8px;"><span>${value}</span>`;
+                    } else {
+                        display.textContent = value;
+                    }
+                    
+                    menu.classList.remove('open');
+                    button.classList.remove('active');
+                });
+            });
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.custom-dropdown')) {
+                document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
+                document.querySelectorAll('.dropdown-button.active').forEach(b => b.classList.remove('active'));
+            }
+        });
+        
+        // Initialize all dropdowns
+        setupCustomDropdown('server-button', 'server-menu', 'server', 'server-display');
+        setupCustomDropdown('content-button', 'content-menu', 'content_type', 'content-display');
+        setupCustomDropdown('job-button', 'job-menu', 'player_job', 'job-display');
+    </script>
+
+    <footer>
+        Made by <a href="https://github.com/lunarised/final-feedback" target="_blank">lunarised</a> with love
+    </footer>
+</body>
+</html>

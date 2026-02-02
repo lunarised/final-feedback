@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Limited - FFXIV Performance</title>
+    <style>
+        :root {
+            --primary: #1a3a5c;
+            --primary-light: #2d5a87;
+            --accent: #d4a84b;
+            --bg: #0f1923;
+            --bg-light: #1a2a3a;
+            --text: #e0e0e0;
+            --warning: #d4a84b;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--bg-light) 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        .warning-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: var(--warning);
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            color: var(--text);
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .timer {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .timer-text {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 14px 30px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212, 168, 75, 0.4);
+        }
+        
+        .character-thumb {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center 20%;
+            border: 2px solid var(--accent);
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/assets/2.webp" alt="Character" class="character-thumb" width="80" height="80" loading="eager">
+        <h1>Please Wait</h1>
+        <p>You've already submitted feedback recently. To prevent spam, please wait before submitting another response.</p>
+        <div class="timer">
+            <div class="timer-text">Try again in ~30 minutes</div>
+        </div>
+        <a href="/" class="btn">Back to Home</a>
+    </div>
+</body>
+</html>
