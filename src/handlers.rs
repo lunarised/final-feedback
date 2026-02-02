@@ -57,17 +57,19 @@ pub async fn submit_feedback(
     let ip_address = get_client_ip(&req);
     let conn = data.db.lock();
     
-    // Check rate limit
-    match check_rate_limit(&conn, &ip_address, data.rate_limit_minutes) {
-        Ok(allowed) => {
-            if !allowed {
-                let template = RateLimitedTemplate {};
-                return template.to_response();
+    // Check rate limit (skip for localhost)
+    if !ip_address.starts_with("127.") && ip_address != "localhost" {
+        match check_rate_limit(&conn, &ip_address, data.rate_limit_minutes) {
+            Ok(allowed) => {
+                if !allowed {
+                    let template = RateLimitedTemplate {};
+                    return template.to_response();
+                }
             }
-        }
-        Err(e) => {
-            log::error!("Rate limit check failed: {}", e);
-            return HttpResponse::InternalServerError().body("Database error");
+            Err(e) => {
+                log::error!("Rate limit check failed: {}", e);
+                return HttpResponse::InternalServerError().body("Database error");
+            }
         }
     }
     
