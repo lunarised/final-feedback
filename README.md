@@ -22,7 +22,7 @@ A self-hosted FFXIV feedback survey application built with Rust and Actix-web. C
 ### 1. Clone and Build
 
 ```bash
-git clone https://github.com/yourusername/FinalFeedback.git
+git clone https://github.com/lunarised/FinalFeedback.git
 cd FinalFeedback
 cargo build --release
 ```
@@ -120,3 +120,4 @@ PLAYER_NAME=Violet Aerithil
 ### Discord Integration
 - `DISCORD_WEBHOOK_URL`: Discord webhook URL for notifications
 - Leave empty to disable
+
