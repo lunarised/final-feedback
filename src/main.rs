@@ -53,6 +53,10 @@ async fn main() -> std::io::Result<()> {
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(30);
+    let ip_rate_limit_max = env::var("IP_RATE_LIMIT_MAX")
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(10);
     
     let player = PlayerConfig {
         name: player_name,
@@ -86,6 +90,7 @@ async fn main() -> std::io::Result<()> {
                 discord_webhook_url: discord_webhook_url.clone(),
                 player: player.clone(),
                 rate_limit_minutes,
+                ip_rate_limit_max,
             }))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())

@@ -36,19 +36,79 @@ pub fn init_database(db_path: &str) -> Result<Connection> {
         [],
     )?;
 
+    // Create cookie tracking table for soft limit (1 per 30 mins per device)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS cookie_submissions (
+            cookie_id TEXT PRIMARY KEY,
+            submitted_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cookie_submitted_at ON cookie_submissions (submitted_at)",
+        [],
+    )?;
+
+    // Clean up old cookie entries (older than 1 hour)
+    let cutoff = chrono::Utc::now() - chrono::Duration::hours(1);
+    let cutoff_str = cutoff.format("%Y-%m-%d %H:%M:%S").to_string();
+    let _ = conn.execute(
+        "DELETE FROM cookie_submissions WHERE submitted_at < ?1",
+        [&cutoff_str],
+    );
+
     log::info!("Database initialized at {}", db_path);
     Ok(conn)
 }
 
-pub fn check_rate_limit(conn: &Connection, ip_address: &str, minutes: i64) -> Result<bool> {
-    let cutoff = chrono::Utc::now() - chrono::Duration::minutes(minutes);
-    let cutoff_str = cutoff.format("%Y-%m-%d %H:%M:%S").to_string();
+pub enum RateLimitType {
+    CookieSoftLimit,      // Same device, tried within 30 mins
+    IpHardLimit,          // Same IP, 10+ submissions in last hour
+}
+
+pub fn check_rate_limits(
+    conn: &Connection,
+    ip_address: &str,
+    cookie_id: &str,
+    ip_limit_max: i64,
+) -> Result<Option<RateLimitType>> {
+    // Check cookie soft limit (1 per 30 mins per device)
+    let thirty_mins_ago = chrono::Utc::now() - chrono::Duration::minutes(30);
+    let cutoff_str = thirty_mins_ago.format("%Y-%m-%d %H:%M:%S").to_string();
     
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM feedback WHERE ip_address = ?1 AND created_at > ?2",
-        [ip_address, &cutoff_str],
+    let cookie_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM cookie_submissions WHERE cookie_id = ?1 AND submitted_at > ?2",
+        rusqlite::params![cookie_id, &cutoff_str],
         |row| row.get(0),
     )?;
     
-    Ok(count == 0) // true if allowed to submit
+    if cookie_count > 0 {
+        return Ok(Some(RateLimitType::CookieSoftLimit));
+    }
+    
+    // Check IP hard limit (10 per hour per IP)
+    let one_hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
+    let cutoff_str = one_hour_ago.format("%Y-%m-%d %H:%M:%S").to_string();
+    
+    let ip_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM feedback WHERE ip_address = ?1 AND created_at > ?2",
+        rusqlite::params![ip_address, &cutoff_str],
+        |row| row.get(0),
+    )?;
+    
+    if ip_count >= ip_limit_max {
+        return Ok(Some(RateLimitType::IpHardLimit));
+    }
+    
+    Ok(None) // No limits hit
+}
+
+pub fn record_submission(conn: &Connection, cookie_id: &str) -> Result<()> {
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    conn.execute(
+        "INSERT OR REPLACE INTO cookie_submissions (cookie_id, submitted_at) VALUES (?1, ?2)",
+        rusqlite::params![cookie_id, now],
+    )?;
+    Ok(())
 }

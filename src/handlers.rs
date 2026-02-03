@@ -6,8 +6,8 @@ use askama_actix::TemplateToResponse;
 use serde_json::json;
 
 use crate::models::{Feedback, FeedbackSubmission, is_valid_server};
-use crate::db::check_rate_limit;
-use crate::templates::{IndexTemplate, SuccessTemplate, RateLimitedTemplate, AdminTemplate, AdminLoginTemplate, PlayerConfig};
+use crate::db::{check_rate_limits, record_submission, RateLimitType};
+use crate::templates::{IndexTemplate, SuccessTemplate, RateLimitedTemplate, RateLimitedHardTemplate, AdminTemplate, AdminLoginTemplate, PlayerConfig};
 
 pub type DbPool = Arc<Mutex<Connection>>;
 
@@ -16,7 +16,9 @@ pub struct AppState {
     pub admin_password: String,
     pub discord_webhook_url: Option<String>,
     pub player: PlayerConfig,
+    #[allow(dead_code)]
     pub rate_limit_minutes: i64,
+    pub ip_rate_limit_max: i64,
 }
 
 fn get_client_ip(req: &HttpRequest) -> String {
@@ -57,19 +59,35 @@ pub async fn submit_feedback(
     let ip_address = get_client_ip(&req);
     let conn = data.db.lock();
     
-    // Check rate limit (skip for localhost)
+    // Generate or retrieve cookie ID
+    let cookie_id = if let Some(cookie) = req.cookie("feedback_session") {
+        cookie.value().to_string()
+    } else {
+        uuid::Uuid::new_v4().to_string()
+    };
+    
+    // Check rate limits (skip for localhost)
     if !ip_address.starts_with("127.") && ip_address != "localhost" {
-        match check_rate_limit(&conn, &ip_address, data.rate_limit_minutes) {
-            Ok(allowed) => {
-                if !allowed {
-                    let template = RateLimitedTemplate {};
-                    return template.to_response();
+        match check_rate_limits(&conn, &ip_address, &cookie_id, data.ip_rate_limit_max) {
+            Ok(Some(limit_type)) => {
+                match limit_type {
+                    RateLimitType::CookieSoftLimit => {
+                        // Soft limit - same device, tried within 30 mins
+                        let template = RateLimitedTemplate {};
+                        return template.to_response();
+                    }
+                    RateLimitType::IpHardLimit => {
+                        // Hard limit - too many submissions from this IP in the last hour
+                        let template = RateLimitedHardTemplate {};
+                        return template.to_response();
+                    }
                 }
             }
             Err(e) => {
                 log::error!("Rate limit check failed: {}", e);
                 return HttpResponse::InternalServerError().body("Database error");
             }
+            Ok(None) => {} // No limits hit, continue
         }
     }
     
@@ -161,10 +179,25 @@ pub async fn submit_feedback(
                 });
             }
             
-            let template = SuccessTemplate {
+            // Record the cookie submission for soft limit tracking
+            if let Err(e) = record_submission(&conn, &cookie_id) {
+                log::error!("Failed to record cookie submission: {}", e);
+            }
+            
+            let mut response = SuccessTemplate {
                 player: data.player.clone(),
-            };
-            template.to_response()
+            }.to_response();
+            
+            // Set cookie with 1 hour expiration
+            let cookie = format!(
+                "feedback_session={}; Max-Age=3600; Path=/; HttpOnly; SameSite=Lax",
+                cookie_id
+            );
+            if let Ok(header_value) = cookie.parse() {
+                response.headers_mut().insert(header::SET_COOKIE, header_value);
+            }
+            
+            response
         }
         Err(e) => {
             log::error!("Failed to insert feedback: {}", e);

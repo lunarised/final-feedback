@@ -28,6 +28,10 @@ pub struct SuccessTemplate {
 pub struct RateLimitedTemplate {}
 
 #[derive(Template)]
+#[template(path = "rate_limited_hard.html")]
+pub struct RateLimitedHardTemplate {}
+
+#[derive(Template)]
 #[template(path = "admin_login.html")]
 pub struct AdminLoginTemplate {}
 
