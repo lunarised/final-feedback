@@ -50,11 +50,37 @@ pub fn init_database(db_path: &str) -> Result<Connection> {
         [],
     )?;
 
+    // Create IP attempt tracking table for rate limiting purposes
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ip_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address TEXT NOT NULL,
+            attempted_at TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ip_attempts_ip_address ON ip_attempts (ip_address)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ip_attempts_attempted_at ON ip_attempts (attempted_at)",
+        [],
+    )?;
+
     // Clean up old cookie entries (older than 1 hour)
     let cutoff = chrono::Utc::now() - chrono::Duration::hours(1);
     let cutoff_str = cutoff.format("%Y-%m-%d %H:%M:%S").to_string();
     let _ = conn.execute(
         "DELETE FROM cookie_submissions WHERE submitted_at < ?1",
+        [&cutoff_str],
+    );
+
+    // Clean up old IP attempts (older than 1 hour)
+    let _ = conn.execute(
+        "DELETE FROM ip_attempts WHERE attempted_at < ?1",
         [&cutoff_str],
     );
 
@@ -87,17 +113,27 @@ pub fn check_rate_limits(
         return Ok(Some(RateLimitType::CookieSoftLimit));
     }
     
-    // Check IP hard limit (10 per hour per IP)
+    // Check IP hard limit (includes both actual submissions and blocked attempts)
     let one_hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
     let cutoff_str = one_hour_ago.format("%Y-%m-%d %H:%M:%S").to_string();
     
-    let ip_count: i64 = conn.query_row(
+    // Count actual submissions
+    let submission_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM feedback WHERE ip_address = ?1 AND created_at > ?2",
         rusqlite::params![ip_address, &cutoff_str],
         |row| row.get(0),
     )?;
     
-    if ip_count >= ip_limit_max {
+    // Count blocked attempts
+    let attempt_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM ip_attempts WHERE ip_address = ?1 AND attempted_at > ?2",
+        rusqlite::params![ip_address, &cutoff_str],
+        |row| row.get(0),
+    )?;
+    
+    let total_count = submission_count + attempt_count;
+    
+    if total_count >= ip_limit_max {
         return Ok(Some(RateLimitType::IpHardLimit));
     }
     
@@ -109,6 +145,15 @@ pub fn record_submission(conn: &Connection, cookie_id: &str) -> Result<()> {
     conn.execute(
         "INSERT OR REPLACE INTO cookie_submissions (cookie_id, submitted_at) VALUES (?1, ?2)",
         rusqlite::params![cookie_id, now],
+    )?;
+    Ok(())
+}
+
+pub fn record_ip_attempt(conn: &Connection, ip_address: &str) -> Result<()> {
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    conn.execute(
+        "INSERT INTO ip_attempts (ip_address, attempted_at) VALUES (?1, ?2)",
+        rusqlite::params![ip_address, now],
     )?;
     Ok(())
 }

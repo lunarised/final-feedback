@@ -103,6 +103,7 @@ async fn main() -> std::io::Result<()> {
             .route("/admin/delete/{id}", web::delete().to(handlers::delete_feedback))
             // Static assets
             .service(fs::Files::new("/assets", "src/assets").use_last_modified(true))
+            .service(fs::Files::new("/static", "static").use_last_modified(true))
     })
     .bind(&bind_addr)?
     .run()

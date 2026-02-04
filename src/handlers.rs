@@ -6,7 +6,7 @@ use askama_actix::TemplateToResponse;
 use serde_json::json;
 
 use crate::models::{Feedback, FeedbackSubmission, is_valid_server};
-use crate::db::{check_rate_limits, record_submission, RateLimitType};
+use crate::db::{check_rate_limits, record_submission, record_ip_attempt, RateLimitType};
 use crate::templates::{IndexTemplate, SuccessTemplate, RateLimitedTemplate, RateLimitedHardTemplate, AdminTemplate, AdminLoginTemplate, PlayerConfig};
 
 pub type DbPool = Arc<Mutex<Connection>>;
@@ -73,12 +73,14 @@ pub async fn submit_feedback(
                 match limit_type {
                     RateLimitType::CookieSoftLimit => {
                         // Soft limit - same device, tried within 30 mins
-                        let template = RateLimitedTemplate {};
+                        // Record this as an IP attempt to count towards the hard limit
+                        let _ = record_ip_attempt(&conn, &ip_address);
+                        let template = RateLimitedTemplate { player: data.player.clone() };
                         return template.to_response();
                     }
                     RateLimitType::IpHardLimit => {
                         // Hard limit - too many submissions from this IP in the last hour
-                        let template = RateLimitedHardTemplate {};
+                        let template = RateLimitedHardTemplate { player: data.player.clone() };
                         return template.to_response();
                     }
                 }

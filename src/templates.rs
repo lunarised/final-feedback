@@ -25,11 +25,15 @@ pub struct SuccessTemplate {
 
 #[derive(Template)]
 #[template(path = "rate_limited.html")]
-pub struct RateLimitedTemplate {}
+pub struct RateLimitedTemplate {
+    pub player: PlayerConfig,
+}
 
 #[derive(Template)]
 #[template(path = "rate_limited_hard.html")]
-pub struct RateLimitedHardTemplate {}
+pub struct RateLimitedHardTemplate {
+    pub player: PlayerConfig,
+}
 
 #[derive(Template)]
 #[template(path = "admin_login.html")]
