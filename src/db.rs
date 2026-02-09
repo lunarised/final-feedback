@@ -99,21 +99,7 @@ pub fn check_rate_limits(
     cookie_id: &str,
     ip_limit_max: i64,
 ) -> Result<Option<RateLimitType>> {
-    // Check cookie soft limit (1 per 30 mins per device)
-    let thirty_mins_ago = chrono::Utc::now() - chrono::Duration::minutes(30);
-    let cutoff_str = thirty_mins_ago.format("%Y-%m-%d %H:%M:%S").to_string();
-    
-    let cookie_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM cookie_submissions WHERE cookie_id = ?1 AND submitted_at > ?2",
-        rusqlite::params![cookie_id, &cutoff_str],
-        |row| row.get(0),
-    )?;
-    
-    if cookie_count > 0 {
-        return Ok(Some(RateLimitType::CookieSoftLimit));
-    }
-    
-    // Check IP hard limit (includes both actual submissions and blocked attempts)
+    // Check IP hard limit first (includes both actual submissions and blocked attempts)
     let one_hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
     let cutoff_str = one_hour_ago.format("%Y-%m-%d %H:%M:%S").to_string();
     
@@ -135,6 +121,20 @@ pub fn check_rate_limits(
     
     if total_count >= ip_limit_max {
         return Ok(Some(RateLimitType::IpHardLimit));
+    }
+    
+    // Check cookie soft limit (1 per 30 mins per device)
+    let thirty_mins_ago = chrono::Utc::now() - chrono::Duration::minutes(30);
+    let cutoff_str = thirty_mins_ago.format("%Y-%m-%d %H:%M:%S").to_string();
+    
+    let cookie_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM cookie_submissions WHERE cookie_id = ?1 AND submitted_at > ?2",
+        rusqlite::params![cookie_id, &cutoff_str],
+        |row| row.get(0),
+    )?;
+    
+    if cookie_count > 0 {
+        return Ok(Some(RateLimitType::CookieSoftLimit));
     }
     
     Ok(None) // No limits hit
