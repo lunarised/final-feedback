@@ -19,6 +19,7 @@ pub struct AppState {
     #[allow(dead_code)]
     pub rate_limit_minutes: i64,
     pub ip_rate_limit_max: i64,
+    pub rate_limit_localhost: bool,
 }
 
 fn get_client_ip(req: &HttpRequest) -> String {
@@ -66,23 +67,25 @@ pub async fn submit_feedback(
         uuid::Uuid::new_v4().to_string()
     };
     
-    // Check rate limits (skip for localhost)
-    if !ip_address.starts_with("127.") && ip_address != "localhost" {
-        match check_rate_limits(&conn, &ip_address, &cookie_id, data.ip_rate_limit_max) {
-            Ok(Some(limit_type)) => {
-                match limit_type {
-                    RateLimitType::CookieSoftLimit => {
-                        // Soft limit - same device, tried within 30 mins
-                        // Record this as an IP attempt to count towards the hard limit
-                        let _ = record_ip_attempt(&conn, &ip_address);
-                        let template = RateLimitedTemplate { player: data.player.clone() };
-                        return template.to_response();
-                    }
-                    RateLimitType::IpHardLimit => {
-                        // Hard limit - too many submissions from this IP in the last hour
-                        let template = RateLimitedHardTemplate { player: data.player.clone() };
-                        return template.to_response();
-                    }
+    // Check rate limits (skip for localhost if disabled)
+    let should_rate_limit = data.rate_limit_localhost || (!ip_address.starts_with("127.") && ip_address != "localhost");
+    
+    if should_rate_limit {
+    match check_rate_limits(&conn, &ip_address, &cookie_id, data.ip_rate_limit_max) {
+        Ok(Some(limit_type)) => {
+            match limit_type {
+                RateLimitType::CookieSoftLimit => {
+                    // Soft limit - same device, tried within 30 mins
+                    // Record this as an IP attempt to count towards the hard limit
+                    let _ = record_ip_attempt(&conn, &ip_address);
+                    let template = RateLimitedTemplate { player: data.player.clone() };
+                    return template.to_response();
+                }
+                RateLimitType::IpHardLimit => {
+                    // Hard limit - too many submissions from this IP in the last hour
+                    let template = RateLimitedHardTemplate { player: data.player.clone() };
+                    return template.to_response();
+                }
                 }
             }
             Err(e) => {
@@ -91,7 +94,7 @@ pub async fn submit_feedback(
             }
             Ok(None) => {} // No limits hit, continue
         }
-    }
+    } // End should_rate_limit check
     
     // Validate ratings
     let ratings = [

@@ -57,6 +57,10 @@ async fn main() -> std::io::Result<()> {
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(10);
+    let rate_limit_localhost = env::var("RATE_LIMIT_LOCALHOST")
+        .ok()
+        .and_then(|v| v.to_lowercase().parse::<bool>().ok())
+        .unwrap_or(false);
     
     let player = PlayerConfig {
         name: player_name,
@@ -91,6 +95,7 @@ async fn main() -> std::io::Result<()> {
                 player: player.clone(),
                 rate_limit_minutes,
                 ip_rate_limit_max,
+                rate_limit_localhost,
             }))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
