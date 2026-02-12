@@ -913,3 +913,42 @@
                 text-align: left;
             }
         }
+
+/* Form validation styling */
+.rating-item.invalid {
+    animation: shake 0.4s;
+}
+
+.rating-item.invalid .rating-label {
+    color: var(--error-color, #e74c3c);
+}
+
+.rating-item.invalid .star-rating {
+    border: 2px solid var(--error-color, #e74c3c);
+    border-radius: 8px;
+    padding: 8px;
+    background: rgba(231, 76, 60, 0.05);
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.validation-message {
+    color: var(--error-color, #e74c3c);
+    font-size: 0.9rem;
+    margin-top: 8px;
+    display: none;
+    animation: fadeIn 0.3s;
+}
+
+.validation-message.show {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

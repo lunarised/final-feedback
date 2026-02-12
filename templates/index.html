@@ -511,6 +511,64 @@
         setupCustomDropdown('server-button', 'server-menu', 'server', 'server-display');
         setupCustomDropdown('content-button', 'content-menu', 'content_type', 'content-display');
         setupCustomDropdown('job-button', 'job-menu', 'player_job', 'job-display');
+        
+        // Form validation
+        const form = document.getElementById('feedback-form');
+        
+        form.addEventListener('submit', function(e) {
+            // Clear previous validation messages
+            document.querySelectorAll('.rating-item.invalid').forEach(item => {
+                item.classList.remove('invalid');
+            });
+            document.querySelectorAll('.validation-message').forEach(msg => {
+                msg.remove();
+            });
+            
+            const requiredRatings = [
+                { name: 'rating_mechanics', label: 'Mechanics Execution' },
+                { name: 'rating_damage', label: 'Damage/Healing Output' },
+                { name: 'rating_teamwork', label: 'Teamwork & Cooperation' },
+                { name: 'rating_communication', label: 'Communication' },
+                { name: 'rating_overall', label: 'Overall Performance' }
+            ];
+            
+            let firstInvalid = null;
+            
+            requiredRatings.forEach(rating => {
+                const checked = document.querySelector(`input[name="${rating.name}"]:checked`);
+                if (!checked) {
+                    const ratingItem = document.querySelector(`input[name="${rating.name}"]`).closest('.rating-item');
+                    if (ratingItem && !firstInvalid) {
+                        firstInvalid = ratingItem;
+                    }
+                    if (ratingItem) {
+                        ratingItem.classList.add('invalid');
+                        const msg = document.createElement('div');
+                        msg.className = 'validation-message show';
+                        msg.textContent = `Please rate ${rating.label}`;
+                        ratingItem.appendChild(msg);
+                    }
+                }
+            });
+            
+            if (firstInvalid) {
+                e.preventDefault();
+                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
+        });
+        
+        // Remove invalid state when user selects a rating
+        document.querySelectorAll('input[type="radio"][required]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const ratingItem = this.closest('.rating-item');
+                if (ratingItem) {
+                    ratingItem.classList.remove('invalid');
+                    const msg = ratingItem.querySelector('.validation-message');
+                    if (msg) msg.remove();
+                }
+            });
+        });
     </script>
 
     <footer>
