@@ -6,7 +6,9 @@ where
 {
     // Checkboxes send "true" or "on" when checked, nothing when unchecked
     let opt: Option<String> = Option::deserialize(deserializer)?;
-    Ok(opt.map(|s| s == "true" || s == "on" || s == "1").unwrap_or(false))
+    Ok(opt
+        .map(|s| s == "true" || s == "on" || s == "1")
+        .unwrap_or(false))
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,37 +48,117 @@ pub struct Feedback {
 impl Feedback {
     #[allow(dead_code)]
     pub fn average_rating(&self) -> f32 {
-        (self.rating_mechanics + self.rating_damage + self.rating_teamwork 
-            + self.rating_communication + self.rating_overall) as f32 / 5.0
+        (self.rating_mechanics
+            + self.rating_damage
+            + self.rating_teamwork
+            + self.rating_communication
+            + self.rating_overall) as f32
+            / 5.0
     }
 }
 
 // FFXIV Server list for validation
 pub const FFXIV_SERVERS: &[&str] = &[
     // NA - Aether
-    "Adamantoise", "Cactuar", "Faerie", "Gilgamesh", "Jenova", "Midgardsormr", "Sargatanas", "Siren",
-    // NA - Crystal  
-    "Balmung", "Brynhildr", "Coeurl", "Diabolos", "Goblin", "Malboro", "Mateus", "Zalera",
+    "Adamantoise",
+    "Cactuar",
+    "Faerie",
+    "Gilgamesh",
+    "Jenova",
+    "Midgardsormr",
+    "Sargatanas",
+    "Siren",
+    // NA - Crystal
+    "Balmung",
+    "Brynhildr",
+    "Coeurl",
+    "Diabolos",
+    "Goblin",
+    "Malboro",
+    "Mateus",
+    "Zalera",
     // NA - Primal
-    "Behemoth", "Excalibur", "Exodus", "Famfrit", "Hyperion", "Lamia", "Leviathan", "Ultros",
+    "Behemoth",
+    "Excalibur",
+    "Exodus",
+    "Famfrit",
+    "Hyperion",
+    "Lamia",
+    "Leviathan",
+    "Ultros",
     // NA - Dynamis
-    "Halicarnassus", "Maduin", "Marilith", "Seraph", "Cuchulainn", "Golem", "Kraken", "Rafflesia",
+    "Halicarnassus",
+    "Maduin",
+    "Marilith",
+    "Seraph",
+    "Cuchulainn",
+    "Golem",
+    "Kraken",
+    "Rafflesia",
     // EU - Chaos
-    "Cerberus", "Louisoix", "Moogle", "Omega", "Phantom", "Ragnarok", "Sagittarius", "Spriggan",
+    "Cerberus",
+    "Louisoix",
+    "Moogle",
+    "Omega",
+    "Phantom",
+    "Ragnarok",
+    "Sagittarius",
+    "Spriggan",
     // EU - Light
-    "Alpha", "Lich", "Odin", "Phoenix", "Raiden", "Shiva", "Twintania", "Zodiark",
+    "Alpha",
+    "Lich",
+    "Odin",
+    "Phoenix",
+    "Raiden",
+    "Shiva",
+    "Twintania",
+    "Zodiark",
     // JP - Elemental
-    "Aegis", "Atomos", "Carbuncle", "Garuda", "Gungnir", "Kujata", "Tonberry", "Typhon",
+    "Aegis",
+    "Atomos",
+    "Carbuncle",
+    "Garuda",
+    "Gungnir",
+    "Kujata",
+    "Tonberry",
+    "Typhon",
     // JP - Gaia
-    "Alexander", "Bahamut", "Durandal", "Fenrir", "Ifrit", "Ridill", "Tiamat", "Ultima",
+    "Alexander",
+    "Bahamut",
+    "Durandal",
+    "Fenrir",
+    "Ifrit",
+    "Ridill",
+    "Tiamat",
+    "Ultima",
     // JP - Mana
-    "Anima", "Asura", "Chocobo", "Hades", "Ixion", "Masamune", "Pandaemonium", "Titan",
+    "Anima",
+    "Asura",
+    "Chocobo",
+    "Hades",
+    "Ixion",
+    "Masamune",
+    "Pandaemonium",
+    "Titan",
     // JP - Meteor
-    "Belias", "Mandragora", "Ramuh", "Shinryu", "Unicorn", "Valefor", "Yojimbo", "Zeromus",
+    "Belias",
+    "Mandragora",
+    "Ramuh",
+    "Shinryu",
+    "Unicorn",
+    "Valefor",
+    "Yojimbo",
+    "Zeromus",
     // OCE - Materia
-    "Bismarck", "Ravana", "Sephirot", "Sophia", "Zurvan",
+    "Bismarck",
+    "Ravana",
+    "Sephirot",
+    "Sophia",
+    "Zurvan",
 ];
 
 pub fn is_valid_server(server: &str) -> bool {
-    FFXIV_SERVERS.iter().any(|&s| s.eq_ignore_ascii_case(server))
+    FFXIV_SERVERS
+        .iter()
+        .any(|&s| s.eq_ignore_ascii_case(server))
 }

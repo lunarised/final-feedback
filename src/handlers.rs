@@ -1,13 +1,16 @@
-use actix_web::{web, HttpRequest, HttpResponse, http::header};
-use rusqlite::Connection;
-use parking_lot::Mutex;
-use std::sync::Arc;
+use actix_web::{http::header, web, HttpRequest, HttpResponse};
 use askama_actix::TemplateToResponse;
+use parking_lot::Mutex;
+use rusqlite::Connection;
 use serde_json::json;
+use std::sync::Arc;
 
-use crate::models::{Feedback, FeedbackSubmission, is_valid_server};
-use crate::db::{check_rate_limits, record_submission, record_ip_attempt, RateLimitType};
-use crate::templates::{IndexTemplate, SuccessTemplate, RateLimitedTemplate, RateLimitedHardTemplate, AdminTemplate, AdminLoginTemplate, DefaultPasswordErrorTemplate, PlayerConfig};
+use crate::db::{check_rate_limits, record_ip_attempt, record_submission, RateLimitType};
+use crate::models::{is_valid_server, Feedback, FeedbackSubmission};
+use crate::templates::{
+    AdminLoginTemplate, AdminTemplate, DefaultPasswordErrorTemplate, IndexTemplate, PlayerConfig,
+    RateLimitedHardTemplate, RateLimitedTemplate, SuccessTemplate,
+};
 
 pub type DbPool = Arc<Mutex<Connection>>;
 
@@ -51,16 +54,15 @@ fn truncate_opt(input: Option<String>, max_chars: usize) -> Option<String> {
 /// display_ip: Forwarded IP if from trusted proxy, otherwise peer_ip (for logging/Discord)
 fn get_client_ip(req: &HttpRequest, trusted_proxies: &[String]) -> (String, String) {
     // Get the actual peer IP - this is the REAL connection source
-    let peer_ip = req.connection_info()
+    let peer_ip = req
+        .connection_info()
         .peer_addr()
         .unwrap_or("unknown")
         .to_string();
-    
+
     // Only trust forwarded headers if the peer IP is from a known proxy
-    let is_trusted_proxy = trusted_proxies.iter().any(|proxy| {
-        proxy.trim() == peer_ip
-    });
-    
+    let is_trusted_proxy = trusted_proxies.iter().any(|proxy| proxy.trim() == peer_ip);
+
     let display_ip = if is_trusted_proxy {
         // Safe to use forwarded header from this proxy
         if let Some(forwarded) = req.headers().get("X-Forwarded-For") {
@@ -70,19 +72,19 @@ fn get_client_ip(req: &HttpRequest, trusted_proxies: &[String]) -> (String, Stri
                 }
             }
         }
-        
+
         if let Some(real_ip) = req.headers().get("X-Real-IP") {
             if let Ok(ip) = real_ip.to_str() {
                 return (peer_ip, ip.trim().to_string());
             }
         }
-        
+
         peer_ip.clone()
     } else {
         // Not from a trusted proxy, use peer IP
         peer_ip.clone()
     };
-    
+
     (peer_ip, display_ip)
 }
 
@@ -100,14 +102,14 @@ pub async fn submit_feedback(
 ) -> HttpResponse {
     let (peer_ip, display_ip) = get_client_ip(&req, &data.trusted_proxy_ips);
     let conn = data.db.lock();
-    
+
     // Generate or retrieve cookie ID
     let cookie_id = if let Some(cookie) = req.cookie("feedback_session") {
         cookie.value().to_string()
     } else {
         uuid::Uuid::new_v4().to_string()
     };
-    
+
     // Always use peer_ip for rate limiting - can't be spoofed
     // Never bypass rate limiting based on untrusted headers
     match check_rate_limits(&conn, &peer_ip, &cookie_id, data.ip_rate_limit_max) {
@@ -117,23 +119,27 @@ pub async fn submit_feedback(
                     // Soft limit - same device, tried within 30 mins
                     // Record this as an IP attempt to count towards the hard limit
                     let _ = record_ip_attempt(&conn, &peer_ip);
-                    let template = RateLimitedTemplate { player: data.player.clone() };
+                    let template = RateLimitedTemplate {
+                        player: data.player.clone(),
+                    };
                     return template.to_response();
                 }
                 RateLimitType::IpHardLimit => {
                     // Hard limit - too many submissions from this IP in the last hour
-                    let template = RateLimitedHardTemplate { player: data.player.clone() };
+                    let template = RateLimitedHardTemplate {
+                        player: data.player.clone(),
+                    };
                     return template.to_response();
                 }
-                }
             }
-            Err(e) => {
-                log::error!("Rate limit check failed: {}", e);
-                return HttpResponse::InternalServerError().body("Database error");
-            }
-            Ok(None) => {} // No limits hit, continue
         }
-    
+        Err(e) => {
+            log::error!("Rate limit check failed: {}", e);
+            return HttpResponse::InternalServerError().body("Database error");
+        }
+        Ok(None) => {} // No limits hit, continue
+    }
+
     // Validate ratings
     let ratings = [
         form.rating_mechanics,
@@ -142,13 +148,13 @@ pub async fn submit_feedback(
         form.rating_communication,
         form.rating_overall,
     ];
-    
+
     for rating in ratings {
         if !(1..=5).contains(&rating) {
             return HttpResponse::BadRequest().body("Invalid rating value");
         }
     }
-    
+
     // Validate server if provided and not anonymous
     if !form.is_anonymous {
         if let Some(ref server) = form.server {
@@ -162,10 +168,10 @@ pub async fn submit_feedback(
             }
         }
     }
-    
+
     let id = uuid::Uuid::new_v4().to_string();
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    
+
     let (char_name, server) = if form.is_anonymous {
         (None, None)
     } else {
@@ -178,7 +184,7 @@ pub async fn submit_feedback(
     let comments = truncate_opt(form.comments.clone(), MAX_COMMENTS);
     let content_type = truncate_opt(form.content_type.clone(), MAX_CONTENT_TYPE);
     let player_job = truncate_opt(form.player_job.clone(), MAX_PLAYER_JOB);
-    
+
     let result = conn.execute(
         "INSERT INTO feedback (id, character_name, server, is_anonymous, rating_mechanics, 
          rating_damage, rating_teamwork, rating_communication, rating_overall, comments, 
@@ -201,11 +207,15 @@ pub async fn submit_feedback(
             created_at,
         ],
     );
-    
+
     match result {
         Ok(_) => {
-            log::info!("New feedback submitted from IP: {} (displayed as {})", peer_ip, display_ip);
-            
+            log::info!(
+                "New feedback submitted from IP: {} (displayed as {})",
+                peer_ip,
+                display_ip
+            );
+
             // Send Discord notification if webhook is configured
             if let Some(ref webhook_url) = data.discord_webhook_url {
                 let webhook_url = webhook_url.clone();
@@ -222,7 +232,7 @@ pub async fn submit_feedback(
                     content_type: content_type.clone(),
                     player_job: player_job.clone(),
                 };
-                
+
                 // Spawn async task to send webhook (don't block response)
                 tokio::spawn(async move {
                     if let Err(e) = send_discord_notification(&webhook_url, feedback_data).await {
@@ -230,25 +240,27 @@ pub async fn submit_feedback(
                     }
                 });
             }
-            
+
             // Record the cookie submission for soft limit tracking
             if let Err(e) = record_submission(&conn, &cookie_id) {
                 log::error!("Failed to record cookie submission: {}", e);
             }
-            
+
             let mut response = SuccessTemplate {
                 player: data.player.clone(),
-            }.to_response();
-            
+            }
+            .to_response();
+
             // Set cookie with 1 hour expiration
             let cookie = format!(
-                "feedback_session={}; Max-Age=3600; Path=/; HttpOnly; SameSite=Lax",
-                cookie_id
+                "feedback_session={cookie_id}; Max-Age=3600; Path=/; HttpOnly; SameSite=Lax"
             );
             if let Ok(header_value) = cookie.parse() {
-                response.headers_mut().insert(header::SET_COOKIE, header_value);
+                response
+                    .headers_mut()
+                    .insert(header::SET_COOKIE, header_value);
             }
-            
+
             response
         }
         Err(e) => {
@@ -276,9 +288,12 @@ fn stars(rating: i32) -> String {
     "★".repeat(rating as usize) + &"☆".repeat((5 - rating) as usize)
 }
 
-async fn send_discord_notification(webhook_url: &str, data: DiscordFeedbackData) -> Result<(), reqwest::Error> {
+async fn send_discord_notification(
+    webhook_url: &str,
+    data: DiscordFeedbackData,
+) -> Result<(), reqwest::Error> {
     let client = reqwest::Client::new();
-    
+
     // Build reviewer info
     let reviewer = if data.is_anonymous {
         "Anonymous".to_string()
@@ -289,7 +304,7 @@ async fn send_discord_notification(webhook_url: &str, data: DiscordFeedbackData)
             _ => "Unknown".to_string(),
         }
     };
-    
+
     // Build context info
     let mut context_parts = Vec::new();
     if let Some(ref job) = data.player_job {
@@ -303,11 +318,15 @@ async fn send_discord_notification(webhook_url: &str, data: DiscordFeedbackData)
     } else {
         context_parts.join(" | ")
     };
-    
+
     // Calculate average rating
-    let avg = (data.rating_mechanics + data.rating_damage + data.rating_teamwork 
-        + data.rating_communication + data.rating_overall) as f32 / 5.0;
-    
+    let avg = (data.rating_mechanics
+        + data.rating_damage
+        + data.rating_teamwork
+        + data.rating_communication
+        + data.rating_overall) as f32
+        / 5.0;
+
     // Determine embed color based on overall rating
     let color = match data.rating_overall {
         5 => 0x4CAF50, // Green
@@ -316,7 +335,7 @@ async fn send_discord_notification(webhook_url: &str, data: DiscordFeedbackData)
         2 => 0xFF9800, // Orange
         _ => 0xF44336, // Red
     };
-    
+
     // Build the embed
     let embed = json!({
         "embeds": [{
@@ -364,12 +383,9 @@ async fn send_discord_notification(webhook_url: &str, data: DiscordFeedbackData)
             "timestamp": chrono::Utc::now().to_rfc3339()
         }]
     });
-    
-    client.post(webhook_url)
-        .json(&embed)
-        .send()
-        .await?;
-    
+
+    client.post(webhook_url).json(&embed).send().await?;
+
     log::info!("Discord notification sent successfully");
     Ok(())
 }
@@ -377,12 +393,10 @@ async fn send_discord_notification(webhook_url: &str, data: DiscordFeedbackData)
 fn check_admin_auth(req: &HttpRequest, admin_password: &str) -> bool {
     if let Some(auth_header) = req.headers().get(header::AUTHORIZATION) {
         if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str.starts_with("Basic ") {
-                let encoded = &auth_str[6..];
-                if let Ok(decoded) = base64::Engine::decode(
-                    &base64::engine::general_purpose::STANDARD,
-                    encoded
-                ) {
+            if let Some(encoded) = auth_str.strip_prefix("Basic ") {
+                if let Ok(decoded) =
+                    base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encoded)
+                {
                     if let Ok(credentials) = String::from_utf8(decoded) {
                         // Format: username:password
                         if let Some((_user, pass)) = credentials.split_once(':') {
@@ -405,27 +419,24 @@ pub async fn admin_login(data: web::Data<AppState>) -> HttpResponse {
     template.to_response()
 }
 
-pub async fn admin_panel(
-    req: HttpRequest,
-    data: web::Data<AppState>,
-) -> HttpResponse {
+pub async fn admin_panel(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
     if data.is_default_admin_password {
         let template = DefaultPasswordErrorTemplate {};
         return template.to_response();
     }
-    
+
     if !check_admin_auth(&req, &data.admin_password) {
         return HttpResponse::Unauthorized()
             .insert_header((header::WWW_AUTHENTICATE, "Basic realm=\"Admin Panel\""))
             .body("Unauthorized");
     }
-    
+
     let conn = data.db.lock();
-    
+
     let mut stmt = match conn.prepare(
         "SELECT id, character_name, server, is_anonymous, rating_mechanics, rating_damage,
          rating_teamwork, rating_communication, rating_overall, comments, content_type,
-         player_job, ip_address, created_at FROM feedback ORDER BY created_at DESC"
+         player_job, ip_address, created_at FROM feedback ORDER BY created_at DESC",
     ) {
         Ok(s) => s,
         Err(e) => {
@@ -433,7 +444,7 @@ pub async fn admin_panel(
             return HttpResponse::InternalServerError().body("Database error");
         }
     };
-    
+
     let feedback_iter = stmt.query_map([], |row| {
         Ok(Feedback {
             id: row.get(0)?,
@@ -452,7 +463,7 @@ pub async fn admin_panel(
             created_at: row.get(13)?,
         })
     });
-    
+
     let feedbacks: Vec<Feedback> = match feedback_iter {
         Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
         Err(e) => {
@@ -460,21 +471,25 @@ pub async fn admin_panel(
             return HttpResponse::InternalServerError().body("Database error");
         }
     };
-    
+
     let total_count = feedbacks.len();
     let avg_overall: f32 = if total_count > 0 {
-        feedbacks.iter().map(|f| f.rating_overall as f32).sum::<f32>() / total_count as f32
+        feedbacks
+            .iter()
+            .map(|f| f.rating_overall as f32)
+            .sum::<f32>()
+            / total_count as f32
     } else {
         0.0
     };
-    
+
     let template = AdminTemplate {
         player: data.player.clone(),
         feedbacks,
         total_count,
         avg_overall,
     };
-    
+
     template.to_response()
 }
 
@@ -488,10 +503,10 @@ pub async fn delete_feedback(
             .insert_header((header::WWW_AUTHENTICATE, "Basic realm=\"Admin Panel\""))
             .body("Unauthorized");
     }
-    
+
     let id = path.into_inner();
     let conn = data.db.lock();
-    
+
     match conn.execute("DELETE FROM feedback WHERE id = ?1", [&id]) {
         Ok(rows) => {
             if rows > 0 {

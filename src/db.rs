@@ -2,7 +2,7 @@ use rusqlite::{Connection, Result};
 
 pub fn init_database(db_path: &str) -> Result<Connection> {
     let conn = Connection::open(db_path)?;
-    
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS feedback (
             id TEXT PRIMARY KEY,
@@ -84,13 +84,13 @@ pub fn init_database(db_path: &str) -> Result<Connection> {
         [&cutoff_str],
     );
 
-    log::info!("Database initialized at {}", db_path);
+    log::info!("Database initialized at {db_path}");
     Ok(conn)
 }
 
 pub enum RateLimitType {
-    CookieSoftLimit,      // Same device, tried within 30 mins
-    IpHardLimit,          // Same IP, 10+ submissions in last hour
+    CookieSoftLimit, // Same device, tried within 30 mins
+    IpHardLimit,     // Same IP, 10+ submissions in last hour
 }
 
 pub fn check_rate_limits(
@@ -102,41 +102,41 @@ pub fn check_rate_limits(
     // Check IP hard limit first (includes both actual submissions and blocked attempts)
     let one_hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
     let cutoff_str = one_hour_ago.format("%Y-%m-%d %H:%M:%S").to_string();
-    
+
     // Count actual submissions
     let submission_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM feedback WHERE ip_address = ?1 AND created_at > ?2",
         rusqlite::params![ip_address, &cutoff_str],
         |row| row.get(0),
     )?;
-    
+
     // Count blocked attempts
     let attempt_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM ip_attempts WHERE ip_address = ?1 AND attempted_at > ?2",
         rusqlite::params![ip_address, &cutoff_str],
         |row| row.get(0),
     )?;
-    
+
     let total_count = submission_count + attempt_count;
-    
+
     if total_count >= ip_limit_max {
         return Ok(Some(RateLimitType::IpHardLimit));
     }
-    
+
     // Check cookie soft limit (1 per 30 mins per device)
     let thirty_mins_ago = chrono::Utc::now() - chrono::Duration::minutes(30);
     let cutoff_str = thirty_mins_ago.format("%Y-%m-%d %H:%M:%S").to_string();
-    
+
     let cookie_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM cookie_submissions WHERE cookie_id = ?1 AND submitted_at > ?2",
         rusqlite::params![cookie_id, &cutoff_str],
         |row| row.get(0),
     )?;
-    
+
     if cookie_count > 0 {
         return Ok(Some(RateLimitType::CookieSoftLimit));
     }
-    
+
     Ok(None) // No limits hit
 }
 
