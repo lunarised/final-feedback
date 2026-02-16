@@ -40,6 +40,10 @@ pub struct RateLimitedHardTemplate {
 pub struct AdminLoginTemplate {}
 
 #[derive(Template)]
+#[template(path = "default_password_error.html")]
+pub struct DefaultPasswordErrorTemplate {}
+
+#[derive(Template)]
 #[template(path = "admin.html")]
 pub struct AdminTemplate {
     pub player: PlayerConfig,

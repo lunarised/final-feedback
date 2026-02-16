@@ -36,10 +36,13 @@ async fn main() -> std::io::Result<()> {
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let db_path = env::var("DATABASE_PATH").unwrap_or_else(|_| "feedback.db".to_string());
-    let admin_password = env::var("ADMIN_PASSWORD").unwrap_or_else(|_| {
-        log::warn!("ADMIN_PASSWORD not set, using default 'admin123' - CHANGE THIS IN PRODUCTION!");
-        "admin123".to_string()
-    });
+    let (admin_password, is_default_admin_password) = match env::var("ADMIN_PASSWORD") {
+        Ok(pass) => (pass, false),
+        Err(_) => {
+            log::warn!("ADMIN_PASSWORD not set, using default 'admin123' - CHANGE THIS IN PRODUCTION!");
+            ("admin123".to_string(), true)
+        }
+    };
     let discord_webhook_url = env::var("DISCORD_WEBHOOK_URL").ok();
     
     // Player configuration
@@ -57,10 +60,15 @@ async fn main() -> std::io::Result<()> {
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(10);
-    let rate_limit_localhost = env::var("RATE_LIMIT_LOCALHOST")
-        .ok()
-        .and_then(|v| v.to_lowercase().parse::<bool>().ok())
-        .unwrap_or(false);
+    
+    // Parse trusted proxy IPs (comma-separated)
+    // Example: "127.0.0.1,192.168.1.1"
+    let trusted_proxy_ips: Vec<String> = env::var("TRUSTED_PROXY_IPS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|ip| ip.trim().to_string())
+        .filter(|ip| !ip.is_empty())
+        .collect();
     
     let player = PlayerConfig {
         name: player_name,
@@ -73,6 +81,16 @@ async fn main() -> std::io::Result<()> {
     
     if discord_webhook_url.is_some() {
         log::info!("Discord webhook notifications enabled");
+    }
+    
+    if is_default_admin_password {
+        log::error!("WARNING: Using default admin password! Admin panel will show error page until ADMIN_PASSWORD is set.");
+    }
+    
+    if !trusted_proxy_ips.is_empty() {
+        log::info!("Trusted proxy IPs: {}", trusted_proxy_ips.join(", "));
+    } else {
+        log::warn!("No trusted proxies configured - X-Forwarded-For headers will be ignored");
     }
     
     log::info!("Player: {} @ {} ({})", player.name, player.server, player.datacenter);
@@ -95,7 +113,8 @@ async fn main() -> std::io::Result<()> {
                 player: player.clone(),
                 rate_limit_minutes,
                 ip_rate_limit_max,
-                rate_limit_localhost,
+                trusted_proxy_ips: trusted_proxy_ips.clone(),
+                is_default_admin_password,
             }))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())

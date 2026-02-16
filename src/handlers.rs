@@ -7,7 +7,7 @@ use serde_json::json;
 
 use crate::models::{Feedback, FeedbackSubmission, is_valid_server};
 use crate::db::{check_rate_limits, record_submission, record_ip_attempt, RateLimitType};
-use crate::templates::{IndexTemplate, SuccessTemplate, RateLimitedTemplate, RateLimitedHardTemplate, AdminTemplate, AdminLoginTemplate, PlayerConfig};
+use crate::templates::{IndexTemplate, SuccessTemplate, RateLimitedTemplate, RateLimitedHardTemplate, AdminTemplate, AdminLoginTemplate, DefaultPasswordErrorTemplate, PlayerConfig};
 
 pub type DbPool = Arc<Mutex<Connection>>;
 
@@ -19,7 +19,8 @@ pub struct AppState {
     #[allow(dead_code)]
     pub rate_limit_minutes: i64,
     pub ip_rate_limit_max: i64,
-    pub rate_limit_localhost: bool,
+    pub trusted_proxy_ips: Vec<String>,
+    pub is_default_admin_password: bool,
 }
 
 // Maximum allowed lengths for text fields to avoid unbounded DB growth
@@ -45,27 +46,44 @@ fn truncate_opt(input: Option<String>, max_chars: usize) -> Option<String> {
     })
 }
 
-fn get_client_ip(req: &HttpRequest) -> String {
-    // Check for forwarded headers first (for reverse proxies)
-    if let Some(forwarded) = req.headers().get("X-Forwarded-For") {
-        if let Ok(forwarded_str) = forwarded.to_str() {
-            if let Some(ip) = forwarded_str.split(',').next() {
-                return ip.trim().to_string();
+/// Returns (peer_ip, display_ip)
+/// peer_ip: The actual connection source (always trusted, used for rate limiting)
+/// display_ip: Forwarded IP if from trusted proxy, otherwise peer_ip (for logging/Discord)
+fn get_client_ip(req: &HttpRequest, trusted_proxies: &[String]) -> (String, String) {
+    // Get the actual peer IP - this is the REAL connection source
+    let peer_ip = req.connection_info()
+        .peer_addr()
+        .unwrap_or("unknown")
+        .to_string();
+    
+    // Only trust forwarded headers if the peer IP is from a known proxy
+    let is_trusted_proxy = trusted_proxies.iter().any(|proxy| {
+        proxy.trim() == peer_ip
+    });
+    
+    let display_ip = if is_trusted_proxy {
+        // Safe to use forwarded header from this proxy
+        if let Some(forwarded) = req.headers().get("X-Forwarded-For") {
+            if let Ok(forwarded_str) = forwarded.to_str() {
+                if let Some(ip) = forwarded_str.split(',').next() {
+                    return (peer_ip, ip.trim().to_string());
+                }
             }
         }
-    }
-    
-    if let Some(real_ip) = req.headers().get("X-Real-IP") {
-        if let Ok(ip) = real_ip.to_str() {
-            return ip.trim().to_string();
+        
+        if let Some(real_ip) = req.headers().get("X-Real-IP") {
+            if let Ok(ip) = real_ip.to_str() {
+                return (peer_ip, ip.trim().to_string());
+            }
         }
-    }
+        
+        peer_ip.clone()
+    } else {
+        // Not from a trusted proxy, use peer IP
+        peer_ip.clone()
+    };
     
-    // Fall back to connection info
-    req.connection_info()
-        .realip_remote_addr()
-        .unwrap_or("unknown")
-        .to_string()
+    (peer_ip, display_ip)
 }
 
 pub async fn index(data: web::Data<AppState>) -> HttpResponse {
@@ -80,7 +98,7 @@ pub async fn submit_feedback(
     data: web::Data<AppState>,
     form: web::Form<FeedbackSubmission>,
 ) -> HttpResponse {
-    let ip_address = get_client_ip(&req);
+    let (peer_ip, display_ip) = get_client_ip(&req, &data.trusted_proxy_ips);
     let conn = data.db.lock();
     
     // Generate or retrieve cookie ID
@@ -90,17 +108,15 @@ pub async fn submit_feedback(
         uuid::Uuid::new_v4().to_string()
     };
     
-    // Check rate limits (skip for localhost if disabled)
-    let should_rate_limit = data.rate_limit_localhost || (!ip_address.starts_with("127.") && ip_address != "localhost");
-    
-    if should_rate_limit {
-    match check_rate_limits(&conn, &ip_address, &cookie_id, data.ip_rate_limit_max) {
+    // Always use peer_ip for rate limiting - can't be spoofed
+    // Never bypass rate limiting based on untrusted headers
+    match check_rate_limits(&conn, &peer_ip, &cookie_id, data.ip_rate_limit_max) {
         Ok(Some(limit_type)) => {
             match limit_type {
                 RateLimitType::CookieSoftLimit => {
                     // Soft limit - same device, tried within 30 mins
                     // Record this as an IP attempt to count towards the hard limit
-                    let _ = record_ip_attempt(&conn, &ip_address);
+                    let _ = record_ip_attempt(&conn, &peer_ip);
                     let template = RateLimitedTemplate { player: data.player.clone() };
                     return template.to_response();
                 }
@@ -117,7 +133,6 @@ pub async fn submit_feedback(
             }
             Ok(None) => {} // No limits hit, continue
         }
-    } // End should_rate_limit check
     
     // Validate ratings
     let ratings = [
@@ -182,14 +197,14 @@ pub async fn submit_feedback(
             comments,
             content_type,
             player_job,
-            ip_address,
+            peer_ip,
             created_at,
         ],
     );
     
     match result {
         Ok(_) => {
-            log::info!("New feedback submitted from IP: {}", ip_address);
+            log::info!("New feedback submitted from IP: {} (displayed as {})", peer_ip, display_ip);
             
             // Send Discord notification if webhook is configured
             if let Some(ref webhook_url) = data.discord_webhook_url {
@@ -381,7 +396,11 @@ fn check_admin_auth(req: &HttpRequest, admin_password: &str) -> bool {
     false
 }
 
-pub async fn admin_login() -> HttpResponse {
+pub async fn admin_login(data: web::Data<AppState>) -> HttpResponse {
+    if data.is_default_admin_password {
+        let template = DefaultPasswordErrorTemplate {};
+        return template.to_response();
+    }
     let template = AdminLoginTemplate {};
     template.to_response()
 }
@@ -390,6 +409,11 @@ pub async fn admin_panel(
     req: HttpRequest,
     data: web::Data<AppState>,
 ) -> HttpResponse {
+    if data.is_default_admin_password {
+        let template = DefaultPasswordErrorTemplate {};
+        return template.to_response();
+    }
+    
     if !check_admin_auth(&req, &data.admin_password) {
         return HttpResponse::Unauthorized()
             .insert_header((header::WWW_AUTHENTICATE, "Basic realm=\"Admin Panel\""))
