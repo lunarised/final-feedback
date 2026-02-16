@@ -22,6 +22,29 @@ pub struct AppState {
     pub rate_limit_localhost: bool,
 }
 
+// Maximum allowed lengths for text fields to avoid unbounded DB growth
+const MAX_CHAR_NAME: usize = 100;
+const MAX_SERVER: usize = 50;
+const MAX_COMMENTS: usize = 200;
+const MAX_CONTENT_TYPE: usize = 100;
+const MAX_PLAYER_JOB: usize = 100;
+
+fn truncate_opt(input: Option<String>, max_chars: usize) -> Option<String> {
+    input.and_then(|s| {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        let cnt = trimmed.chars().count();
+        let out = if cnt > max_chars {
+            trimmed.chars().take(max_chars).collect::<String>()
+        } else {
+            trimmed.to_string()
+        };
+        Some(out)
+    })
+}
+
 fn get_client_ip(req: &HttpRequest) -> String {
     // Check for forwarded headers first (for reverse proxies)
     if let Some(forwarded) = req.headers().get("X-Forwarded-For") {
@@ -114,8 +137,13 @@ pub async fn submit_feedback(
     // Validate server if provided and not anonymous
     if !form.is_anonymous {
         if let Some(ref server) = form.server {
-            if !server.is_empty() && !is_valid_server(server) {
-                return HttpResponse::BadRequest().body("Invalid server name");
+            if !server.is_empty() {
+                if server.chars().count() > MAX_SERVER {
+                    return HttpResponse::BadRequest().body("Invalid server name");
+                }
+                if !is_valid_server(server) {
+                    return HttpResponse::BadRequest().body("Invalid server name");
+                }
             }
         }
     }
@@ -127,10 +155,14 @@ pub async fn submit_feedback(
         (None, None)
     } else {
         (
-            form.character_name.clone().filter(|s| !s.is_empty()),
-            form.server.clone().filter(|s| !s.is_empty()),
+            truncate_opt(form.character_name.clone(), MAX_CHAR_NAME),
+            truncate_opt(form.server.clone(), MAX_SERVER),
         )
     };
+
+    let comments = truncate_opt(form.comments.clone(), MAX_COMMENTS);
+    let content_type = truncate_opt(form.content_type.clone(), MAX_CONTENT_TYPE);
+    let player_job = truncate_opt(form.player_job.clone(), MAX_PLAYER_JOB);
     
     let result = conn.execute(
         "INSERT INTO feedback (id, character_name, server, is_anonymous, rating_mechanics, 
@@ -147,9 +179,9 @@ pub async fn submit_feedback(
             form.rating_teamwork,
             form.rating_communication,
             form.rating_overall,
-            form.comments,
-            form.content_type,
-            form.player_job,
+            comments,
+            content_type,
+            player_job,
             ip_address,
             created_at,
         ],
@@ -171,9 +203,9 @@ pub async fn submit_feedback(
                     rating_teamwork: form.rating_teamwork,
                     rating_communication: form.rating_communication,
                     rating_overall: form.rating_overall,
-                    comments: form.comments.clone(),
-                    content_type: form.content_type.clone(),
-                    player_job: form.player_job.clone(),
+                    comments: comments.clone(),
+                    content_type: content_type.clone(),
+                    player_job: player_job.clone(),
                 };
                 
                 // Spawn async task to send webhook (don't block response)

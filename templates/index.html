@@ -439,7 +439,10 @@
                 <h2 class="card-title">Additional Comments</h2>
                 <div class="form-group">
                     <label for="comments">Any specific feedback or suggestions?</label>
-                    <textarea id="comments" name="comments" placeholder="Feel free to share any specific feedback, things I did well, or areas where I can improve..."></textarea>
+                    <textarea id="comments" name="comments" placeholder="Feel free to share any specific feedback, things I did well, or areas where I can improve..." maxlength="200"></textarea>
+                    <div class="char-counter">
+                        <span id="char-count">200</span> characters remaining
+                    </div>
                 </div>
             </div>
             
@@ -569,6 +572,38 @@
                 }
             });
         });
+
+        // Character counter for comments
+        const commentsField = document.getElementById('comments');
+        const charCountDisplay = document.getElementById('char-count');
+        const MAX_CHARS = 200;
+        
+        if (commentsField && charCountDisplay) {
+            // Update counter on input
+            commentsField.addEventListener('input', function() {
+                const used = this.value.length;
+                const remaining = MAX_CHARS - used;
+                charCountDisplay.textContent = remaining;
+                
+                // Change color if nearing limit
+                const counter = charCountDisplay.parentElement;
+                if (remaining < 200) {
+                    counter.classList.add('warning');
+                } else {
+                    counter.classList.remove('warning');
+                }
+            });
+            
+            // Initialize counter if there's existing content
+            const initialCount = commentsField.value.length;
+            if (initialCount > 0) {
+                const remaining = MAX_CHARS - initialCount;
+                charCountDisplay.textContent = remaining;
+                if (remaining < 200) {
+                    charCountDisplay.parentElement.classList.add('warning');
+                }
+            }
+        }
     </script>
 
     <footer>

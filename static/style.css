@@ -307,6 +307,18 @@
             color: var(--primary-light);
             font-weight: 600;
         }
+
+        .char-counter {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            transition: color var(--trans-normal);
+        }
+
+        .char-counter.warning {
+            color: var(--warning);
+            font-weight: 500;
+        }
         
         textarea {
             min-height: 120px;
