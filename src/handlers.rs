@@ -1,5 +1,5 @@
 use actix_web::{http::header, web, HttpRequest, HttpResponse};
-use askama_actix::TemplateToResponse;
+use rinja::Template;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde_json::json;
@@ -92,7 +92,10 @@ pub async fn index(data: web::Data<AppState>) -> HttpResponse {
     let template = IndexTemplate {
         player: data.player.clone(),
     };
-    template.to_response()
+    match template.render() {
+        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
+        Err(_) => HttpResponse::InternalServerError().body("Template rendering failed"),
+    }
 }
 
 pub async fn submit_feedback(
@@ -122,14 +125,20 @@ pub async fn submit_feedback(
                     let template = RateLimitedTemplate {
                         player: data.player.clone(),
                     };
-                    return template.to_response();
+                    match template.render() {
+                        Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
+                        Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+                    }
                 }
                 RateLimitType::IpHardLimit => {
                     // Hard limit - too many submissions from this IP in the last hour
                     let template = RateLimitedHardTemplate {
                         player: data.player.clone(),
                     };
-                    return template.to_response();
+                    match template.render() {
+                        Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
+                        Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+                    }
                 }
             }
         }
@@ -246,10 +255,15 @@ pub async fn submit_feedback(
                 log::error!("Failed to record cookie submission: {}", e);
             }
 
-            let mut response = SuccessTemplate {
+            let template = SuccessTemplate {
                 player: data.player.clone(),
-            }
-            .to_response();
+            };
+            let body = match template.render() {
+                Ok(b) => b,
+                Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+            };
+
+            let mut response = HttpResponse::Ok().content_type("text/html").body(body);
 
             // Set cookie with 1 hour expiration
             let cookie = format!(
@@ -413,16 +427,25 @@ fn check_admin_auth(req: &HttpRequest, admin_password: &str) -> bool {
 pub async fn admin_login(data: web::Data<AppState>) -> HttpResponse {
     if data.is_default_admin_password {
         let template = DefaultPasswordErrorTemplate {};
-        return template.to_response();
+        match template.render() {
+            Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
+            Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+        }
     }
     let template = AdminLoginTemplate {};
-    template.to_response()
+    match template.render() {
+        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
+        Err(_) => HttpResponse::InternalServerError().body("Template rendering failed"),
+    }
 }
 
 pub async fn admin_panel(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
     if data.is_default_admin_password {
         let template = DefaultPasswordErrorTemplate {};
-        return template.to_response();
+        match template.render() {
+            Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
+            Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+        }
     }
 
     if !check_admin_auth(&req, &data.admin_password) {
@@ -490,7 +513,10 @@ pub async fn admin_panel(req: HttpRequest, data: web::Data<AppState>) -> HttpRes
         avg_overall,
     };
 
-    template.to_response()
+    match template.render() {
+        Ok(body) => HttpResponse::Ok().content_type("text/html").body(body),
+        Err(_) => HttpResponse::InternalServerError().body("Template rendering failed"),
+    }
 }
 
 pub async fn delete_feedback(

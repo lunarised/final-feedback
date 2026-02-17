@@ -1,5 +1,5 @@
 use crate::models::Feedback;
-use askama::Template;
+use rinja::Template;
 
 #[derive(Clone)]
 pub struct PlayerConfig {
