@@ -21,4 +21,4 @@ log = "0.4"
 base64 = "0.22"
 parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
