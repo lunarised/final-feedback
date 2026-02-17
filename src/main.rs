@@ -23,13 +23,13 @@ async fn main() -> std::io::Result<()> {
     let env_file = std::path::PathBuf::from(manifest_dir).join(".env");
     if env_file.exists() {
         log::info!("Loading .env from: {}", env_file.display());
-        match dotenv::from_path(&env_file) {
+        match dotenvy::from_path(&env_file) {
             Ok(_) => log::info!(".env loaded successfully"),
             Err(e) => log::error!("Failed to load .env: {e:?}"),
         }
     } else {
         log::warn!(".env file not found at: {}", env_file.display());
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
     }
 
     // Configuration
