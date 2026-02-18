@@ -1,6 +1,6 @@
 use actix_web::{http::header, web, HttpRequest, HttpResponse};
-use rinja::Template;
 use parking_lot::Mutex;
+use rinja::Template;
 use rusqlite::Connection;
 use serde_json::json;
 use std::sync::Arc;
@@ -127,7 +127,10 @@ pub async fn submit_feedback(
                     };
                     match template.render() {
                         Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
-                        Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+                        Err(_) => {
+                            return HttpResponse::InternalServerError()
+                                .body("Template rendering failed")
+                        }
                     }
                 }
                 RateLimitType::IpHardLimit => {
@@ -137,7 +140,10 @@ pub async fn submit_feedback(
                     };
                     match template.render() {
                         Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
-                        Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+                        Err(_) => {
+                            return HttpResponse::InternalServerError()
+                                .body("Template rendering failed")
+                        }
                     }
                 }
             }
@@ -260,7 +266,9 @@ pub async fn submit_feedback(
             };
             let body = match template.render() {
                 Ok(b) => b,
-                Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+                Err(_) => {
+                    return HttpResponse::InternalServerError().body("Template rendering failed")
+                }
             };
 
             let mut response = HttpResponse::Ok().content_type("text/html").body(body);
