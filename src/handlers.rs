@@ -51,10 +51,7 @@ fn truncate_opt(input: Option<String>, max_chars: usize) -> Option<String> {
 }
 
 /// Check if any field contains filter words (case-insensitive)
-fn contains_filter_words(
-    text: Option<&str>,
-    filter_words: &[String],
-) -> bool {
+fn contains_filter_words(text: Option<&str>, filter_words: &[String]) -> bool {
     if let Some(text) = text {
         let text_lower = text.to_lowercase();
         filter_words.iter().any(|word| text_lower.contains(word))
@@ -64,10 +61,7 @@ fn contains_filter_words(
 }
 
 /// Check if feedback contains any filter words
-fn feedback_contains_filtered_words(
-    form: &FeedbackSubmission,
-    filter_words: &[String],
-) -> bool {
+fn feedback_contains_filtered_words(form: &FeedbackSubmission, filter_words: &[String]) -> bool {
     contains_filter_words(form.character_name.as_deref(), filter_words)
         || contains_filter_words(form.server.as_deref(), filter_words)
         || contains_filter_words(form.comments.as_deref(), filter_words)
