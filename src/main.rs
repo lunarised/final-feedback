@@ -76,6 +76,15 @@ async fn main() -> std::io::Result<()> {
         .filter(|ip| !ip.is_empty())
         .collect();
 
+    // Parse filter words (comma-separated)
+    // Example: "SEO,spam,phishing"
+    let filter_words: Vec<String> = env::var("FILTER_WORDS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|word| word.trim().to_string().to_lowercase())
+        .filter(|word| !word.is_empty())
+        .collect();
+
     let player = PlayerConfig {
         name: player_name,
         server: player_server,
@@ -106,6 +115,7 @@ async fn main() -> std::io::Result<()> {
         player.datacenter
     );
     log::info!("Rate limit window: {rate_limit_minutes} minutes");
+    log::info!("Filter words: {}", filter_words.join(", "));
 
     // Initialize database
     let conn = db::init_database(&db_path).expect("Failed to initialize database");
@@ -126,6 +136,7 @@ async fn main() -> std::io::Result<()> {
                 ip_rate_limit_max,
                 trusted_proxy_ips: trusted_proxy_ips.clone(),
                 is_default_admin_password,
+                filter_words: filter_words.clone(),
             }))
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())

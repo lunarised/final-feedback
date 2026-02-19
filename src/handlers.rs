@@ -24,6 +24,7 @@ pub struct AppState {
     pub ip_rate_limit_max: i64,
     pub trusted_proxy_ips: Vec<String>,
     pub is_default_admin_password: bool,
+    pub filter_words: Vec<String>,
 }
 
 // Maximum allowed lengths for text fields to avoid unbounded DB growth
@@ -47,6 +48,31 @@ fn truncate_opt(input: Option<String>, max_chars: usize) -> Option<String> {
         };
         Some(out)
     })
+}
+
+/// Check if any field contains filter words (case-insensitive)
+fn contains_filter_words(
+    text: Option<&str>,
+    filter_words: &[String],
+) -> bool {
+    if let Some(text) = text {
+        let text_lower = text.to_lowercase();
+        filter_words.iter().any(|word| text_lower.contains(word))
+    } else {
+        false
+    }
+}
+
+/// Check if feedback contains any filter words
+fn feedback_contains_filtered_words(
+    form: &FeedbackSubmission,
+    filter_words: &[String],
+) -> bool {
+    contains_filter_words(form.character_name.as_deref(), filter_words)
+        || contains_filter_words(form.server.as_deref(), filter_words)
+        || contains_filter_words(form.comments.as_deref(), filter_words)
+        || contains_filter_words(form.content_type.as_deref(), filter_words)
+        || contains_filter_words(form.player_job.as_deref(), filter_words)
 }
 
 /// Returns (peer_ip, display_ip)
@@ -153,6 +179,15 @@ pub async fn submit_feedback(
             return HttpResponse::InternalServerError().body("Database error");
         }
         Ok(None) => {} // No limits hit, continue
+    }
+
+    // Check for filter words
+    if feedback_contains_filtered_words(&form, &data.filter_words) {
+        log::warn!(
+            "Feedback submission rejected due to filter words from IP: {}",
+            peer_ip
+        );
+        return HttpResponse::BadRequest().body("Submission contains prohibited content");
     }
 
     // Validate ratings
