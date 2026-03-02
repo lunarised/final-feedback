@@ -78,12 +78,28 @@ async fn main() -> std::io::Result<()> {
 
     // Parse filter words (comma-separated)
     // Example: "SEO,spam,phishing"
-    let filter_words: Vec<String> = env::var("FILTER_WORDS")
+    // We'll treat every entry as lowercase and drop empty tokens.
+    let mut filter_words: Vec<String> = env::var("FILTER_WORDS")
         .unwrap_or_default()
         .split(',')
         .map(|word| word.trim().to_string().to_lowercase())
         .filter(|word| !word.is_empty())
         .collect();
+
+    // Automatically include the configured HOST (plus http/https prefixes) in
+    // the filter list. This helps minimize the impact of SEO trawlers that
+    // submit links back to the site, since they often include the hostname in
+    // their payloads.
+    let host_lower = host.to_lowercase();
+    if !host_lower.is_empty() {
+        filter_words.push(host_lower.clone());
+        filter_words.push(format!("http://{}", host_lower));
+        filter_words.push(format!("https://{}", host_lower));
+    }
+
+    // Remove any duplicate entries that may have been introduced above.
+    filter_words.sort();
+    filter_words.dedup();
 
     let player = PlayerConfig {
         name: player_name,
