@@ -8,8 +8,8 @@ use std::sync::Arc;
 use crate::db::{check_rate_limits, record_ip_attempt, record_submission, RateLimitType};
 use crate::models::{is_valid_server, Feedback, FeedbackSubmission};
 use crate::templates::{
-    AdminLoginTemplate, AdminTemplate, DefaultPasswordErrorTemplate, IndexTemplate, PlayerConfig,
-    RateLimitedHardTemplate, RateLimitedTemplate, SuccessTemplate,
+    AdminLoginTemplate, AdminTemplate, DefaultPasswordErrorTemplate, FilteredTemplate,
+    IndexTemplate, PlayerConfig, RateLimitedHardTemplate, RateLimitedTemplate, SuccessTemplate,
 };
 
 pub type DbPool = Arc<Mutex<Connection>>;
@@ -181,7 +181,13 @@ pub async fn submit_feedback(
             "Feedback submission rejected due to filter words from IP: {}",
             peer_ip
         );
-        return HttpResponse::BadRequest().body("Submission contains prohibited content");
+        let template = FilteredTemplate {
+            player: data.player.clone(),
+        };
+        match template.render() {
+            Ok(body) => return HttpResponse::Ok().content_type("text/html").body(body),
+            Err(_) => return HttpResponse::InternalServerError().body("Template rendering failed"),
+        }
     }
 
     // Validate ratings

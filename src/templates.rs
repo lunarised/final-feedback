@@ -51,3 +51,9 @@ pub struct AdminTemplate {
     pub total_count: usize,
     pub avg_overall: f32,
 }
+
+#[derive(Template)]
+#[template(path = "filtered.html")]
+pub struct FilteredTemplate {
+    pub player: PlayerConfig,
+}
